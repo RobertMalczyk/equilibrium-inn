@@ -50,25 +50,56 @@ done:
       all three. tests/test_config.py (+3): configured set loaded, absent-block
       default fallback = (insult,command), non-perceivable name fails load.
     note: "Player-verb routing through this path is still separate / unimplemented (M-C)."
+  - id: step-2b-two-profiles
+    what: >
+      DEC-1 two-profile split implemented (commit e5bea82). One inn.yaml,
+      profiles overlay engine_overrides delta + disable_activities.
+      g0_stability_profile = empty overlay (= frozen base, golden untouched);
+      game_semantic_profile = idle_recovery{frustration:-0.010} + hearth_idle
+      disabled. Selection EXPLICIT; loop default still bare base so all goldens
+      unchanged (63 tests green). Plumbed config->economy->loop->session(+header
+      +replay). tests/test_profiles.py (9).
+  - id: step-2c-semantic-sweep
+    what: >
+      Ran experiments/g0_semantic_sweep.py (scale x richness, recovery fixed by
+      profile, 3 plans). Results in experiments/out/g0_semantic/.
+    findings:
+      corridor: >
+        Semantic profile is IN the 4-10 corridor at the operating scale: scale
+        <= 0.5 -> 5-6 incidents, max depth 2-3, settles, clamp 0.0, across ALL
+        richness. Canonical scale 0.5 = 6 incidents / depth 3. 0 gaps anywhere;
+        control = 0; step = 0. 10/15 impulse cells settle & in-corridor.
+      stability_cliff: >
+        SHARP cliff above 0.5: scale 0.55 normal/rich = 30 (depth 11) saturate
+        (thin still 6); scale 0.6 = 77-129 (depth 56-64) saturate. The stability
+        profile by contrast settled even at 0.6 (15 incidents). FINDING: the
+        hearth was a major high-scale damper; removing it narrows the stable
+        band to scale <= 0.5. Operating at 0.5 sits at the TOP EDGE of that band.
+      scarcity_gradient_absent: >
+        FINDING (counter to Option B's premise): no thin>rich incident gradient
+        at the operating point — thin~=normal~=rich (5-6) for scale <= 0.5. Near
+        the cliff thin is if anything MORE stable (0.55: thin 6 vs normal/rich
+        30). The frustration-only recovery (-0.010) appears to relieve scarcity
+        priming enough to flatten the gradient. So the faithfulness argument that
+        motivated Option B over the hearth is NOT borne out empirically here.
+        Candidate SEPARATE tuning: lower/zero the frustration recovery to expose
+        scarcity, or accept a flat gradient. NOT tuned now (per user: causality
+        before incident-count optimisation).
+    open_decisions_for_audit:
+      - "DEC-6 default-flip: flip loop default to game_semantic_profile + golden
+         re-baseline? (DEC-1 pre-authorised; numbers support it at scale <=0.5.)"
+      - "DEC-7 operating scale for semantic: keep 0.5 (in-corridor but cliff-edge)
+         or pull back to 0.45 for margin?"
+      - "DEC-8 scarcity gradient: accept flat (finding) or revisit frustration
+         recovery rate as separate tuning?"
+      - "incident_def scope: do refusal/complaint/cold_reply count as incidents?
+         (current def = outburst only; lean NO — sub-insult. Record ruling.)"
+  - id: step-2d-housekeeping-pending
 
 # ============================================================
 # REMAINING (NEXT SESSION — START HERE)
 # ============================================================
 remaining:
-  - id: step-2b-two-profiles
-    what: Implement DEC-1 two-profile split. g0_stability_profile = current
-      hearth config (frozen). game_semantic_profile = Option B (partial
-      frustration-only idle recovery, weaker fallback, scarcity restored),
-      shipped as DEFAULT. Mechanism = inn.yaml profile blocks selecting
-      engine_overrides + catalog mults; loop/session take a profile name.
-  - id: step-2c-semantic-sweep
-    what: Re-run the G0 sweep for game_semantic_profile WITH the gap closed.
-      The old 4-10 corridor + golden were measured gap-OPEN; both move. Decide
-      the incident definition - do refusal/complaint/cold_reply count as
-      "incidents" (CLAUDE.md S7 = "transducer-visible hostile action")? Likely
-      NO (they are sub-insult), but record the ruling. Re-baseline golden
-      deliberately at the end (python -m experiments.regen_golden).
-    open_question: incident_def scope under the closed gap (see above).
   - id: step-2d-housekeeping
     what: Formalize QA-corpus harvest (experiments/out/g0/harvest/); file the
       outburst self-vent engine finding; final CLAUDE.md pass.
@@ -77,8 +108,10 @@ remaining:
 # CARRIED FORWARD (G1 rulings still binding — see registers/m_a.yaml g1_decisions)
 # ============================================================
 g1_rulings_status:
-  DEC-1: "two profiles — hearth frozen + semantic default. Pending impl (2b)."
-  DEC-2: "semantic = partial frustration-only idle recovery. Pending impl (2b)."
+  DEC-1: "two profiles IMPLEMENTED (2b). Loaded-default FLIP to semantic still
+          pending audit (DEC-6) + golden re-baseline."
+  DEC-2: "semantic = partial frustration-only idle recovery IMPLEMENTED
+          (-0.010 provisional; gradient finding open, DEC-8)."
   DEC-3: "outburst vent -0.50 BLESSED. In effect."
   DEC-4: "reactive_window_ticks=1 BLESSED. In effect."
   DEC-5: "witnessing 0.5 (root) / 0.15 (hop) BLESSED. In effect."
