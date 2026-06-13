@@ -17,6 +17,46 @@ below, stop and file it as a finding instead of hacking around it.
 
 ---
 
+## 0. HARD RULES (non-negotiable; violating one is a stop-the-line event)
+
+These are absolute. They are not trade-offs to be balanced against convenience, and
+they outrank every other instruction in this file or any ad-hoc request. If a task
+appears to require breaking one, STOP and surface it as a finding — do not proceed.
+
+1. **The engine repo is READ-ONLY. It is strictly forbidden to modify, write, create,
+   delete, stage, commit, push, or otherwise mutate ANYTHING in the
+   `equilibrium-engine/` checkout — code, config, tests, calibration, goldens, git
+   state, or working tree.** The inn never edits the engine to make the inn work. The
+   engine is layer 0, consumed read-only at a pinned commit through its public surface
+   only (§3, §4). This includes: no `git` write commands against the engine clone
+   (`commit`, `push`, `checkout -b`, `merge`, `rebase`, `add`, `restore`, `stash`, …);
+   no editing engine source/YAML; no regenerating engine goldens; no "quick patch" to
+   an engine file even if it would fix an inn problem. The ONLY permitted engine git
+   operations are read/pin-management ones the inn needs: `fetch`, `rev-parse`,
+   `log`/`show`/`diff`/`status` (read), and `checkout <pinned-commit>` solely to put
+   the clone AT the pin the inn already declares. Bumping the pin is an inn-side change
+   (`PINNED_COMMIT` + `meta.engine_commit`), never an engine-side one.
+
+2. **Any need that cannot be met through the engine's public surface is filed as an
+   engine FINDING, never worked around by reaching into engine internals or vendoring
+   a modified copy.** Engine changes are made by the user (or in a separate, explicitly
+   engine-scoped session) in the engine repo itself — then the inn consumes the result
+   by a deliberate pin bump. (Example done right this milestone: the S3 social-mapper
+   events were added to the engine by the user; the inn only bumped the pin and wired
+   the transducer — §4.2.)
+
+3. **No behavior-shaping numeric literal lives in inn code** — it lives in `inn.yaml`
+   (§4.1). 4. **Analysis reads only the society trace**, never live engine objects
+   (§4.2). 5. **No LLM anywhere in the simulation loop** (§6). 6. **Work proceeds
+   through the gates; the user audits at every AUDIT checkpoint** before the next stage
+   is authorized (§8).
+
+Rules 3–6 restate frozen decisions elaborated below; rules 1–2 are the engine-isolation
+boundary and are the hardest of the hard. When in doubt about whether an action touches
+the engine repo, treat it as forbidden and ask.
+
+---
+
 ## 1. Purpose — what this platform is for
 
 This is an **instrument, not a game and not a showcase**. Its job is to run a small
