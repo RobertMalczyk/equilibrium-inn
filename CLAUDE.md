@@ -167,6 +167,16 @@ the canonical pride input — while `complaint`/`cold_reply` are direct-only in 
 Floors are provisional, tuned by the M-B semantic-profile G0 sweep. The flagship spec
 extension that this gap was waiting on is the engine change that landed these events.
 
+**Second-order (attribution) gap also closed.** A first-order fix (the event affects
+state) is not enough: the world loop must also record the new event as the recipient's
+current *provocation* so a later reactive action is attributed back to the right source
+(`loop._last_prov` → transducer target inference, §2). The provoking-event set is now
+config-driven — `world.provoking_event_types` in `inn.yaml`
+(`[insult, command, cold_reply, refusal, complaint]`); omitting the block falls back to
+the historical safe default `[insult, command]`, and every entry must be perceivable
+(neutral/unknown names fail config load, so nothing becomes provoking by accident).
+Player-verb routing through this path remains separate and is not yet implemented (M-C).
+
 ### 4.3 The tick loop — frozen semantics
 
 Synchronous, **one-tick social latency**:

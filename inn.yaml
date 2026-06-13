@@ -241,6 +241,17 @@ witnessing:
   co_located_attenuation: 0.5
   other_rooms: 0.0
 
+world:
+  # Perceivable events that, when delivered to a persona, become that persona's
+  # current provocation source for reactive TARGET INFERENCE (loop._last_prov ->
+  # transducer target = provoking event's source, CLAUDE.md S2). Closing the S3
+  # social gap means a reaction provoked by a refusal/complaint/cold_reply must
+  # be attributed back to its source, so these join insult+command. Every entry
+  # must be in the mapper's perceivable vocabulary (config load rejects others);
+  # neutral/unknown events are NOT listed, so they never become provoking by
+  # accident. Omitting this block falls back to the safe default [insult,command].
+  provoking_event_types: [insult, command, cold_reply, refusal, complaint]
+
 # Standalone world physics (section 4.2). Trace-only observables in M-A:
 # no mapper channel exists for them and none is invented.
 world_states:

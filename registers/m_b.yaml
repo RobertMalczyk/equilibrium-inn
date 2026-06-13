@@ -32,6 +32,24 @@ done:
       closed gap = 11 incidents (outburst-only def), 0.0 clamp dwell, 0 gaps.
       10 -> 11: the two-way loop is mildly escalating but stays damped, no
       saturation. Full recharacterization is step 2c."
+  - id: step-2a2-attribution
+    what: >
+      SECOND-ORDER (attribution) gap closed. The world loop only recorded
+      insult/command as provocations, so a reaction to a refusal/complaint/
+      cold_reply could be mis-attributed (target inference uses the recorded
+      provocation source). Made the provoking-event set config-driven:
+      world.provoking_event_types in inn.yaml = [insult, command, cold_reply,
+      refusal, complaint]; loop.py reads cfg.provoking_event_types (module
+      DEFAULT_PROVOKING_TYPES kept only as the absent-block fallback). Every
+      entry must be perceivable (config load rejects unknowns); neutral events
+      are not listed so nothing provokes by accident.
+    tests: >
+      tests/test_provocation.py (10): _last_prov set from each of cold_reply/
+      refusal/complaint, preserved for insult/command, NOT overwritten by a
+      non-provoking `help`; reaction-target inference targets the source for
+      all three. tests/test_config.py (+3): configured set loaded, absent-block
+      default fallback = (insult,command), non-perceivable name fails load.
+    note: "Player-verb routing through this path is still separate / unimplemented (M-C)."
 
 # ============================================================
 # REMAINING (NEXT SESSION — START HERE)

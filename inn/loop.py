@@ -38,7 +38,10 @@ from inn.trace import TraceWriter
 from inn.transducer import transduce
 from inn.world_state import WorldStates
 
-PROVOKING_TYPES = ("insult", "command")
+# Historical default, used only when inn.yaml omits the `world` block. The live
+# set is config-driven (cfg.provoking_event_types) so closing a social gap needs
+# no code change here — see config.load_inn_config and CLAUDE.md S4.2.
+DEFAULT_PROVOKING_TYPES = ("insult", "command")
 
 
 def _deep_merge(a: dict, b: dict) -> dict:
@@ -95,6 +98,11 @@ class InnLoop:
         self._last_prov: dict[str, tuple[str | None, str | None, int]] = {
             c.id: (None, None, -1) for c in cfg.cast
         }
+        # Config-driven provoking-event set (falls back to the historical default
+        # only if inn.yaml omits it). A delivery of one of these types records
+        # its source as the recipient's current provocation for target inference.
+        self._provoking_types: frozenset[str] = frozenset(
+            cfg.provoking_event_types or DEFAULT_PROVOKING_TYPES)
         self._engaged: dict[str, str | None] = {c.id: None for c in cfg.cast}
         self._probe_schedule = self._expand_probes(cfg.probes[probe_plan])
         self._weather_spans = self._weather_spans_of(cfg.probes[probe_plan])
@@ -215,7 +223,7 @@ class InnLoop:
             ev = delivery.event if delivery else None
             tick_traces[c.id] = tick(self.runtimes[c.id], t, ev)
             deliveries[c.id] = delivery
-            if ev is not None and ev.type in PROVOKING_TYPES and ev.source is not None:
+            if ev is not None and ev.type in self._provoking_types and ev.source is not None:
                 prov_id = (delivery.provenance_id
                            or f"{ev.t}:{ev.source}:{ev.type}:probe")
                 self._last_prov[c.id] = (prov_id, ev.source, t)

@@ -125,6 +125,7 @@ class InnConfig:
     contention_rule: str
     inbox: InboxPolicy
     probes: dict[str, tuple[Probe, ...]]
+    provoking_event_types: tuple[str, ...]
     g0: dict
     engine_overrides: dict
     yaml_sha256: str
@@ -156,8 +157,8 @@ def load_inn_config(path: str | Path) -> InnConfig:
     doc = yaml.safe_load(raw_bytes)
     _check_keys(doc, {"meta", "cast", "event_sources", "rooms", "schedules",
                       "meals", "activities", "transducer", "witnessing",
-                      "world_states", "contention", "inbox_policy", "probes",
-                      "g0", "engine_overrides"}, "inn.yaml")
+                      "world", "world_states", "contention", "inbox_policy",
+                      "probes", "g0", "engine_overrides"}, "inn.yaml")
 
     meta = doc["meta"]
     if meta["engine_commit"] != PINNED_COMMIT:
@@ -268,6 +269,21 @@ def load_inn_config(path: str | Path) -> InnConfig:
         if ev_type not in PERCEIVABLE_EVENTS:
             raise ValueError(f"inbox priority lists non-perceivable type {ev_type}")
 
+    # Provoking event types: the perceivable events that, when delivered, become
+    # a persona's current provocation source for reactive target inference
+    # (loop._last_prov -> transducer target). Config-driven so closing a social
+    # gap (e.g. the S3 mapper events) needs no code change. Absent `world` block
+    # falls back to the historical safe default (insult + command only). Every
+    # configured name must be perceivable, so a typo or an event the mapper does
+    # not know fails loudly rather than silently never provoking.
+    world = doc.get("world") or {}  # absent or comment-only block -> default
+    _check_keys(world, {"provoking_event_types"}, "world")
+    provoking = tuple(world.get("provoking_event_types", ("insult", "command")))
+    for ev_type in provoking:
+        if ev_type not in PERCEIVABLE_EVENTS:
+            raise ValueError(
+                f"world.provoking_event_types lists non-perceivable type {ev_type!r}")
+
     sources = tuple(doc["event_sources"])
     probes = {name: tuple(_parse_probe(p) for p in plist)
               for name, plist in doc["probes"].items()}
@@ -299,6 +315,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
         inbox=InboxPolicy(rule=ip["rule"], max_defer_ticks=int(ip["max_defer_ticks"]),
                           priority=tuple(ip["priority"])),
         probes=probes,
+        provoking_event_types=provoking,
         g0=doc["g0"],
         engine_overrides=dict(doc.get("engine_overrides", {})),
         yaml_sha256=hashlib.sha256(raw_bytes).hexdigest(),
