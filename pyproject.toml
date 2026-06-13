@@ -1,0 +1,19 @@
+[project]
+name = "equilibrium-inn"
+version = "0.1.0"
+description = "Living-world instrument on equilibrium-engine: a roadside inn measured at society level"
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "numpy>=1.24", "matplotlib>=3.8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["inn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,258 @@
+milestone: M-A (instrument + G0)
+state: COMPLETE - awaiting user G1 AUDIT. Canonical config IN CORRIDOR
+  (10 incidents / 3-day impulse, 6 cascades, max depth 3, all 30 cells settle).
+  31 tests green. Golden = 8e99f0906bd5e291832bd64405d42b23fce60c676fee34abf7531be6475b2286.
+  Engine pinned at 3dcf4a3. inn repo NOT git-initialized yet.
+updated: 2026-06-13
+
+# ============================================================
+# NEXT SESSION — START HERE
+# ============================================================
+next_session_handoff:
+  where_we_are: >
+    M-A is built and G0 passed. The inn is stable and in-corridor across all
+    swept cells. The work now is the G1 audit (gate: user decisions), then the
+    M-B follow-through. Nothing below is blocked on code - it is blocked on
+    your rulings.
+
+  # STEP 1 - G1 AUDIT (YOUR decisions; Claude cannot make these). Read first:
+  #   - experiments/out/g0/g0_report.md            (verdict table + findings)
+  #   - experiments/out/g0/s0.5_roff_normal/impulse/chronicle.md  (believability)
+  #   - the registers below (thin_catalog_hardening_2026_06_13, audit_items_for_G1)
+  g1_decisions_required:
+    - id: DEC-1-scarcity-fork
+      question: Which instrument character?
+      option_1: "hearth (COMMITTED): scarcity-immune; corridor on normal catalog."
+      option_2: "Option B (frustration-only recovery, drop hearth): scarcity-driven;
+                 corridor only in the thin regime; well-stocked inn stays calm.
+                 Simpler, faithful to CLAUDE.md section 5, but recenters corridor."
+      detail_in: thin_catalog_hardening_2026_06_13
+    - id: DEC-2-idle-recovery-off
+      question: Accept idle recovery OFF inn-wide (reverses engine D10/D11), or
+        keep recovery on and revise the corridor to ~2 incidents?
+    - id: DEC-3-outburst-vent
+      question: Bless the inn-authored outburst anger vent (-0.50)? It is the
+        load-bearing damping change; engine calibration does not own it.
+    - id: DEC-4-reactive-window
+      question: Accept reactive_window_ticks=1 (from engine burst eval, not
+        calibrated defaults)?
+    - id: DEC-5-witness-asymmetry
+      question: Bless root-vs-hop witnessing (0.5 vs 0.15) as transducer-table
+        semantics, or revise?
+
+  # STEP 2 - M-B follow-through (Claude does these AFTER the decisions above):
+  m_b_actions:
+    - Apply the chosen config from DEC-1..5 to inn.yaml; if behavior changes,
+      re-run `python -m experiments.regen_golden` and the full sweep.
+    - Formalize the QA-corpus harvest (currently auto-dumped to
+      experiments/out/g0/harvest/*.yaml) into a kept location with a manifest.
+    - File engine findings for the inn-authored overrides that arguably belong
+      in engine calibration: outburst should vent anger (DEC-3); the declared
+      transducer gap (refuse/cold_response/complain emit nothing) is the
+      flagship spec-extension candidate. Hand these to the engine project.
+    - Update CLAUDE.md section 10 (open decisions) to mark DEC-1..5 resolved.
+    - git init the inn repo + first commit once the config is frozen (it is
+      currently NOT under version control).
+
+  # STEP 3 - then M-C: the interactive CLI stepper (advance/report/prompt;
+  #   `why <name>` already exists in prose form as experiments/chronicle.py).
+
+  how_to_reproduce:
+    full_pipeline: "python -m experiments.g0_sweep; python -m experiments.g0_formal; python -m experiments.g0_report"
+    chronicle: "python -m experiments.chronicle  (default = canonical cell)"
+    tests: "python -m pytest tests -q   (must stay 31 green)"
+    note: "run from repo root C:\\Robak\\equilibrium-inn (PowerShell cwd can drift
+           to equilibrium-engine\\ - Set-Location back if -m fails)"
+
+thin_catalog_hardening_2026_06_13:
+  problem: at scale >= 0.55 with a THIN catalog, 2 cells limit-cycled
+    (225, 472 incidents). Mechanism (NOT co-location): with idle recovery off,
+    a thin evening catalog starves seekers night after night; frustration
+    RATCHETS to 1.0 in the susceptible personas (wojslaw/welf/branic) and,
+    having no relief valve, stays pinned -> the room is PERMANENTLY primed by
+    day 3 -> any shared-room moment ignites.
+  fix_committed: hearth_idle activity - high-capacity (7) always-present indoor
+    occupation (cards/mending by the fire), common_room, 12:00-23:00. A seeker
+    is never fully starved even under thin; frustration stays bounded instead of
+    ratcheting. Result: ALL 30 cells now settle (0 limit-cycle, 0 saturate);
+    worst upper-clamp dwell 0.00; 11 cells in corridor. Golden re-baselined.
+  side_effect_FINDING: the hearth as tuned NEUTRALIZES scarcity. thin/normal/
+    rich now ~identical (10.6 incidents; mean frustration 0.079 vs 0.076; mean
+    boredom 0.153 vs 0.151). CLAUDE.md section 5 wants scarcity to be a live
+    texture knob (work->tire->bore->fray); the hearth absorbs it. This is a
+    trade-off, not a free win.
+  option_B_alternative (NOT committed - a G1 decision):
+    Drop the hearth; instead cap the ratchet with FRUSTRATION-ONLY idle
+    recovery (idle_recovery.frustration). Scan results (scales 0.5/0.55/0.6):
+      frus -0.004: rich/normal s0.5=6, thin s0.5=10, thin WORST=577 (runaway)
+      frus -0.008: rich/normal=6,   thin=9,          thin WORST=260 (runaway)
+      frus -0.015: rich/normal=3,   thin=6,          thin WORST=8   (stable)
+    frus -0.015 is fully stable AND preserves a real scarcity gradient
+    (rich 3 -> thin 6). KEY INSIGHT it exposes: the day-2/3 noon flares were
+    substantially FRUSTRATION-primed, not pure resentment carryover - frus
+    recovery removes ~7 of normal's 10 incidents. Cost: normal/rich fall below
+    corridor (3); the corridor would be reached only in the SCARCE regime
+    ("a well-stocked inn is calm; a thin one grumbles") - arguably more
+    believable, but recenters the corridor and the headline result.
+  recommendation_for_G1: choose the instrument's character -
+    (1) hearth = scarcity-immune, corridor on normal catalog (committed); or
+    (2) frustration-recovery = scarcity-driven, corridor in the thin regime.
+    Both are stable. (2) is simpler (no fabricated activity) and faithful to
+    section 5; (1) keeps the corridor where it was defined.
+
+damping_iterations_2026_06_13:
+  goal: corridor 4-10 incidents per 3-day impulse (user authorized iterating)
+  A: witness attenuation 0.5->0.15 + floors roots_only + burst tuning
+     (extinction 0.10, theta_displace 0.75) -> DEAD (0 incidents; probe's
+     direct target Halgrim answers cold_response = declared gap; witnesses
+     at 0.12 never ignite). Finding: ignition was always witness-borne.
+  B: split attenuations - ROOT events (probes/player) witness at 0.5, hop
+     reactions at 0.15 -> step/control clean, impulse still 1780 (pair
+     ping-pong at full target intensity; anger never discharged).
+  C: outburst/hostile cooldown 15 -> NO EFFECT (engine: reactive actions
+     bypass cooldowns by design). Latch thresholds lowered to anger 0.70 /
+     stress 0.40 so the latch catches real fights; extinction 0.15.
+  D: reactive_window_ticks 1 (engine burst eval's own value) + outburst
+     VENTS (post_effects anger -0.50; default discharges nothing, leaving
+     anger pinned and re-firing) -> bounded episodes; scale gains authority
+     because deposit now scales with hop intensity while vent is fixed.
+  E: scale landscape mapped - <=0.70 stable (2 incidents), >=0.75 chaotic
+     band (100-2000, non-monotonic). No corridor via scale alone with idle
+     recovery on.
+  final: canonical = scale 0.5 + idle_recovery OFF (engine_overrides).
+     Lingering arousal carries the day-1 grudge into shallow pre-lunch
+     flares on days 2-3: 10 incidents, 6 cascades, depth <= 3, all settle.
+     Robust across scale 0.4-0.6 x normal/rich catalog (9-14 incidents).
+     thin catalog destabilizes at scale >= 0.55 (472/225 incidents) -
+     scarcity-driven instability, BY DESIGN visible on the catalog axis.
+     recovery-on cells: always 2 incidents (sub-corridor alternative).
+  formal: provoked rho(A) = 1.0063 - near-critical linear regime; episodes
+     are bounded by the NONLINEAR machinery (vent discharge + burst latch +
+     extinction), which a linearization cannot see. Consistent.
+  audit_items_for_G1:
+    - idle recovery disabled inn-wide (reverses engine D10/D11 fix in this
+      context); alternative = recovery on with corridor revised to ~2.
+    - outburst anger vent -0.50 is an inn-authored post_effect override;
+      engine calibration does not own it yet - file as engine finding.
+    - reactive_window_ticks 1 adopted from the engine burst eval, not from
+      calibrated defaults.
+    - root-vs-hop witnessing asymmetry (0.5 vs 0.15) is new world semantics;
+      G1 should bless or revise the transducer table accordingly.
+
+decisions:
+  - id: D1-cast
+    text: Cast = all 7 personas (wojslaw, halgrim, cichy, edda, welf, lutek, branic);
+      marta and player are event-source labels only. (user, section 10.1)
+  - id: D2-corridor
+    text: Incident corridor 4-10 per 3-day impulse run. (user, section 10.2)
+  - id: D3-intensity
+    text: Transduced intensity linear in selection potential x world attenuation,
+      with a per-action floor on ALL transducer rows. (user, section 10.3)
+  - id: D4-formal
+    text: G0 pairs the empirical sweep with formal linearized analysis from the
+      start; empirical remains authoritative. (user, section 10.4)
+  - id: D5-engine-dep
+    text: Engine consumed via sys.path seam (inn/engine_surface.py) pinned to
+      commit 0f90b5e; eval/ is not installable so pip -e is insufficient.
+      Import contract enforced by tests/test_determinism.py::test_import_contract.
+  - id: D6-inbox
+    text: Multi-event inboxes resolved by deterministic priority + bounded
+      deferral (max 5 ticks), drops are loud trace records. One-tick social
+      latency stretches to 1-k ticks under load; delivery_delay logged per
+      event so the stretch is measurable. No merging (destroys attribution).
+  - id: D7-engagement
+    text: Engine engages activities only from SEEKING; scheduled work blocks
+      are therefore offer-driven too (persona seeks, world offers the
+      scheduled activity first). Schedule offers deplete their source.
+
+findings:
+  - id: F1-saturation
+    text: Impulse protocol saturates at every swept cell so far (~2000+
+      incidents, one cascade, depth ~400, anger pinned at clamp). Control is
+      perfectly silent (0 incidents) — the explosion is coupled-loop gain,
+      not probe machinery.
+    next_step_type: calibration/damping (world-side), per section 7 taxonomy
+  - id: F2-floors
+    text: Per-row intensity floors (D3) remove the transducer-scale lever once
+      a cascade runs — each hop re-injects >= floor energy. Scale 0.5 and 1.0
+      produce nearly identical incident counts. Revisit floors at G1, or pair
+      with world-side damping.
+  - id: F3-witness-fanout
+    text: 7 co-located personas in the evening common room x witness
+      attenuation 0.5 gives effective loop gain > 1. Candidate dampers:
+      lower attenuation, cohort choreography (deferred), witness-only scale.
+  - id: F4-recovery-off-expression
+    text: "Recovery off" sweep axis expressed cleanly through public surface as
+      param_overrides idle_recovery {stress: 0, anger: 0} stacked on
+      timescale_overrides(); no engine internals touched. Note
+      timescale_overrides is re-exported via the seam — it is in
+      eval.calibrated next to the sanctioned loaders but not named in
+      CLAUDE.md section 3; flagged for the G1 audit.
+  - id: F5-step-quiet
+    text: Step protocol (rainy day) produces 0 incidents in early cells - rain
+      primes (stress) and closes outdoor catalog but no provocation seeds a
+      cascade. Plausible per design (priming changes incident probability
+      only when provocations occur); worth a probe-plan variant at G1
+      (rain + mild provocation).
+
+engine_update_2026_06_12:
+  pin: 3dcf4a3 (burst & saturation main, was 0f90b5e)
+  enabled: burst latch + extinction (enter anger 0.80 / stress 0.60, exit
+    0.30, confirm 2 ticks), displaced discharge (theta_displace 0.55,
+    relational discount 0 = transient), extinction 0.02/tick, and Loop-2
+    relief-seeking (urge_boredom.stress 0.60). Values adopted from the
+    engine eval's BURST_ON/LOOP2_ON demo set, carried in inn.yaml
+    engine_overrides (applied to all cast via make_persona_loader).
+  golden: re-baselined (2bf218c7...); 31 tests green.
+  g0_rerun:
+    impulse: still saturates in all 30 cells (1669-2357 incidents; max
+      cascade depth GREW to ~836). Burst extinction (0.02/tick) cannot beat
+      social re-injection - each new witness insult re-arms the loop before
+      extinction matters.
+    step: REGRESSION-SHAPED CHANGE - rain alone now ignites a full cascade
+      (1351-1596 incidents vs 0 before). Mechanism: rain stress + Loop-2
+      relief-seeking sends everyone seeking; rain closes the outdoor catalog;
+      timeouts pile frustration; burst latch sets on (anger, stress) plateau;
+      displaced discharge lets latched personas snap at non-provokers; the
+      transducer makes that a witnessed insult -> the social loop seeds
+      itself with no probe. Displaced discharge composed with the
+      witness-fanout instability converts priming into ignition.
+    control: still 0 incidents everywhere.
+    formal: provoked-point rho(A) = 1.14 (cleaner than before, supercritical,
+      direction agrees); quiescent 1.0000 marginal as before.
+  conclusion: the burst machinery works as built (latch sets, extinction
+    runs) but the inn's instability is in the WORLD loop (floors x witness
+    fan-out), which burst cannot damp; and displaced discharge gives the
+    primed-but-unprovoked inn a new ignition path. World-side damping
+    remains the indicated fix before corridor tuning (G1 decision).
+
+g0_result:
+  verdict: ALL 30 impulse cells saturate (1466-2068 incidents vs corridor
+    4-10); 0 cells in corridor. Control and step protocols are 0 incidents in
+    every cell. Neither sweep axis (scale 0.5-2.0, recovery on/off, catalog
+    richness) provides damping authority - see F2/F3.
+  formal: quiescent rho(A) = 1.0000 (marginal, from pure integrators
+    (sleep_pressure/duty drifts) and clamp-pinned states - intra-persona
+    only, zero cross-persona gain). Provoked rho(A) ~ 1.1e4 - numerically
+    inflated by threshold discontinuities (an eps=1e-4 perturbation flips a
+    reaction on/off, a O(1) output change), so the provoked-point Jacobian
+    measures switching, not smooth dynamics. Direction agrees with the
+    empirical verdict (strong supercritical coupling); magnitude is not
+    interpretable. Empirical result is authoritative per CLAUDE.md section 8.
+  per_failure_taxonomy: too chaotic -> calibration/damping. G0's prescribed
+    on-failure path applies - recovery layer alone is insufficient; a
+    world-side damping factor (world config, not engine calibration) is the
+    indicated next step before the corridor can be tuned.
+
+open_questions:
+  - Should the corridor (4-10) be evaluated only after a damping mechanism
+    lands, given F1-F3? The sweep as designed cannot reach the corridor.
+  - Witness events currently reset the receiver's provocation source, so
+    reactions can retarget mid-cascade; acceptable or G1 audit item?
+
+artifacts:
+  - tests/golden/canonical_session.sha256 (control 3-day golden)
+  - experiments/out/g0/sweep_results.json
+  - experiments/out/g0/g0_report.md
+  - experiments/out/g0/formal_analysis.json
+  - experiments/out/g0/harvest/ (scenario-format QA corpus export)

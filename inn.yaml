@@ -1,0 +1,271 @@
+# inn.yaml — the entire inn as data (CLAUDE.md section 4.1).
+# No behavior-shaping numeric literal may live in code; it lives here.
+meta:
+  version: 1
+  engine_commit: "3dcf4a3afbe0af42968d085436a77a0fb92af1d1"
+  days: 3
+
+# Cast list order IS the contention tiebreak order (section 5).
+cast:
+  - {id: wojslaw, room_home: guest_room}
+  - {id: halgrim, room_home: common_room}
+  - {id: cichy, room_home: stable}
+  - {id: edda, room_home: kitchen}
+  - {id: welf, room_home: common_room}
+  - {id: lutek, room_home: yard}
+  - {id: branic, room_home: common_room}
+
+# Labels with no interior; valid event sources only.
+event_sources: [marta, player]
+
+rooms: [common_room, kitchen, yard, stable, guest_room, road]
+
+# Per-persona day-blocks. Compiler turns these into activity offers, meals,
+# and presence. Waking day runs 06:00-23:00 (508 waking ticks at dt~120s);
+# nightfall is emitted to everyone at the end of the waking window.
+schedules:
+  wojslaw:
+    - {from: "06:00", to: "07:00", room: guest_room}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: common_room}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: yard, activity: ride_out}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  halgrim:
+    - {from: "06:00", to: "07:00", room: yard, activity: chop_wood}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: yard, activity: chop_wood}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: yard, activity: repair_fence}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  cichy:
+    - {from: "06:00", to: "07:00", room: stable, activity: muck_stalls}
+    - {from: "07:00", to: "07:30", room: stable, meal: true}
+    - {from: "07:30", to: "12:00", room: stable, activity: muck_stalls}
+    - {from: "12:00", to: "12:30", room: stable, meal: true}
+    - {from: "12:30", to: "18:00", room: stable, activity: tend_horses}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  edda:
+    - {from: "06:00", to: "07:00", room: kitchen, activity: cook}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: kitchen, activity: cook}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: kitchen, activity: cook}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  welf:
+    - {from: "06:00", to: "07:00", room: common_room, activity: sweep_floors}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: common_room, activity: sweep_floors}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: yard, activity: haul_water}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  lutek:
+    - {from: "06:00", to: "07:00", room: yard, activity: haul_water}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: yard, activity: haul_water}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: road, activity: run_errands}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+  branic:
+    - {from: "06:00", to: "07:00", room: common_room}
+    - {from: "07:00", to: "07:30", room: common_room, meal: true}
+    - {from: "07:30", to: "12:00", room: yard, activity: repair_fence}
+    - {from: "12:00", to: "12:30", room: common_room, meal: true}
+    - {from: "12:30", to: "18:00", room: yard, activity: repair_fence}
+    - {from: "18:00", to: "19:00", room: common_room, meal: true}
+    - {from: "19:00", to: "23:00", room: common_room}
+
+# Engine param_overrides stacked on the believable timescale for EVERY cast
+# member. Enables the burst & saturation machinery (engine spec section 8
+# burst): the loop-plateau latch + self-extinguishing episode and displaced
+# discharge, plus the Loop-2 relief-seeking edge (stress raises urge_boredom,
+# so a stressed persona seeks distraction THROUGH the world — the inn's
+# activity economy is exactly that reactive world). Values are the engine
+# eval's demo values (eval/burst_eval.py BURST_ON/LOOP2_ON), adopted as the
+# inn's v1 enabling layer; calibration ownership stays with the engine.
+engine_overrides:
+  # Reactions are rate-limited: an outburst costs ~30 min of game time before
+  # the next can fire (default cooldown 2 ticks let pairs ping-pong every
+  # 4 minutes indefinitely - iteration C finding).
+  action_params:
+    # An outburst VENTS: it discharges the anger it expresses (default books
+    # only resentment on the target, leaving anger pinned and re-firing -
+    # iteration D finding). Cooldowns gate proactive starts only; reactive
+    # rate-limiting comes from the discharge + the 1-tick reactive window.
+    outburst:
+      cooldown: 15
+      post_effects:
+        global: {anger: -0.50}
+        source_relations: {resentment: 0.15}
+    hostile_action: {cooldown: 15}
+  thresholds:
+    # latch must catch real fights: anger 0.70 + stress 0.40 is the observed
+    # mid-fight operating point; at 0.80/0.60 the latch never set and the
+    # extinction circuit breaker stayed dormant.
+    burst_enter.anger: 0.70
+    burst_enter.stress: 0.40
+    burst_exit: 0.30
+    burst_confirm_ticks: 2
+    # A reaction must answer a FRESH provocation (the engine burst eval's own
+    # setting); the wide default window let stale provocations authorize
+    # outbursts for 30+ minutes after the fight went one-sided.
+    reactive_window_ticks: 1
+    # 0.55 -> 0.75: displaced snaps only from a truly loaded state; at 0.55
+    # displaced discharge + witness fan-out let a primed-but-unprovoked room
+    # ignite itself (rain riot, register F-step).
+    theta_displace: 0.75
+  # 0.02 -> 0.10: a burst is a self-terminating EPISODE (~spike, a visible
+  # act or two, forced cool-down), not a steady state. Engine's own
+  # extinction arc demo uses 0.15.
+  burst_extinction: {anger: 0.15, stress: 0.15}
+  # Idle recovery OFF is part of the canonical G0 operating point: lingering
+  # arousal carries the day-1 grudge into small, shallow (depth <= 3)
+  # pre-lunch flares on days 2-3 - the corridor texture. AUDIT ITEM for G1:
+  # this disables the engine's D10/D11 idle-recovery fix inn-wide; the
+  # alternative is recovery on + corridor revised to ~2 incidents.
+  idle_recovery: {stress: 0.0, anger: 0.0}
+  derived_weights:
+    urge_boredom:
+      stress: 0.60
+
+meals:
+  # Meal events are food_given from marta, item by rotation per meal slot.
+  source: marta
+  menu_rotation: [cabbage_soup, bread, porridge, stew, smoked_fish, groats]
+  intensity: 1.0
+
+# The activity economy (section 5): supply as data. Work entries back the
+# schedule blocks; leisure entries answer evening SEEKING. Depletion/replenish
+# generalize mock_world's single novelty budget per source.
+activities:
+  - {id: chop_wood, room: yard, kind: work, window: ["06:00", "18:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: true}
+  - {id: repair_fence, room: yard, kind: work, window: ["06:00", "18:00"], capacity: 2,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: true}
+  - {id: muck_stalls, room: stable, kind: work, window: ["06:00", "18:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: false}
+  - {id: tend_horses, room: stable, kind: work, window: ["06:00", "18:00"], capacity: 2,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: false}
+  - {id: cook, room: kitchen, kind: work, window: ["06:00", "19:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: false}
+  - {id: sweep_floors, room: common_room, kind: work, window: ["06:00", "18:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: false}
+  - {id: haul_water, room: yard, kind: work, window: ["06:00", "18:00"], capacity: 2,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: true}
+  - {id: run_errands, room: road, kind: work, window: ["06:00", "18:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: true}
+  - {id: ride_out, room: yard, kind: leisure, window: ["12:00", "18:00"], capacity: 1,
+     novelty_start: 1.0, deplete_per_offer: 0.10, replenish_per_tick: 0.004,
+     min_novelty: 0.15, offer_latency: 2, outdoor: true}
+  - {id: dice_game, room: common_room, kind: leisure, window: ["18:00", "23:00"], capacity: 3,
+     novelty_start: 1.0, deplete_per_offer: 0.20, replenish_per_tick: 0.004,
+     min_novelty: 0.25, offer_latency: 2, outdoor: false}
+  - {id: swap_stories, room: common_room, kind: social, window: ["18:00", "23:00"], capacity: 4,
+     novelty_start: 0.8, deplete_per_offer: 0.20, replenish_per_tick: 0.004,
+     min_novelty: 0.25, offer_latency: 2, outdoor: false}
+  - {id: evening_walk, room: yard, kind: leisure, window: ["18:00", "21:00"], capacity: 2,
+     novelty_start: 0.6, deplete_per_offer: 0.20, replenish_per_tick: 0.004,
+     min_novelty: 0.25, offer_latency: 2, outdoor: true}
+  # Hearth fallback (G0 finding: thin-catalog frustration ratchet). A low-
+  # stimulation but always-present indoor occupation - mending gear, cards by
+  # the fire - so a seeker is never FULLY starved even in a thin world. High
+  # capacity (whole cast) so it is never the contention bottleneck; low novelty
+  # so it relieves but does not delight. Under the thin multiplier it is sparse,
+  # not absent: frustration stays elevated-and-fluctuating instead of ratcheting
+  # to the permanent-prime ceiling. Indoor, so rain does not close it.
+  - {id: hearth_idle, room: common_room, kind: leisure, window: ["12:00", "23:00"], capacity: 7,
+     novelty_start: 0.5, deplete_per_offer: 0.05, replenish_per_tick: 0.010,
+     min_novelty: 0.10, offer_latency: 2, outdoor: false}
+
+# Transducer table v0 (section 4.2). Lossiness declared here, in the data.
+# transduced = max(floor, intensity.scale * selection_potential); witnesses
+# receive transduced * witnesses.attenuation with context public: true.
+transducer:
+  # floor_policy roots_only (G0 finding F2): the floor applies only to
+  # reactions provoked by EXTERNAL events (probes/player); reaction-to-
+  # reaction hops carry pure scale*potential, so cascades decay geometrically.
+  # scale 0.65: the canonical stable point found at G0 iteration E - cascade
+  # hops decay (a flare is the probe's direct ignitions, depth ~2, then the
+  # room settles); >= 0.75 re-enters the chaotic band.
+  intensity: {shape: linear, scale: 0.5, floor_policy: roots_only}
+  rows:
+    # witness attenuation 0.5 -> 0.15 (G0 finding F3): witnessing primes,
+    # it does not conscript. 6 witnesses x 0.15 keeps per-hop fan-out < 1.
+    outburst:
+      {as: insult, floor: 0.30, witnesses: {attenuation: 0.15, public: true}}
+    hostile_action:
+      {as: insult, floor: 0.50, witnesses: {attenuation: 0.15, public: true}}
+    cooperate:
+      {as: help, floor: 0.20, witnesses: null}
+    positive_response:
+      {as: help, floor: 0.20, witnesses: null}
+  # DECLARED GAP: these actions are socially real but produce no perceivable
+  # event. The authority loop closes one way only. Ships as a gap; flagship
+  # candidate for the first spec extension. Do not invent event types here.
+  declared_gaps: [refuse, cold_response, complain]
+  # Actions with no social surface at all in the MVP.
+  silent: [seek_stimulus, rest, idle, continue, sleep, self_activity, external,
+           command_other, eat]
+
+witnessing:
+  # Applies to ROOT events (probes / player verbs): a stranger making a scene
+  # is dramatic and lands hard on everyone present.
+  co_located_attenuation: 0.5
+  other_rooms: 0.0
+
+# Standalone world physics (section 4.2). Trace-only observables in M-A:
+# no mapper channel exists for them and none is invented.
+world_states:
+  room_tension:
+    rooms: [common_room]
+    half_life_s: 3600
+    gain_per_conflict_intensity: 0.15
+
+contention:
+  rule: highest_urge_then_cast_order
+
+inbox_policy:
+  rule: priority_defer
+  max_defer_ticks: 5
+  priority: [insult, help, command, food_given, activity, nightfall, weather]
+
+# Probe plans: the scenario concept reduced to these (section 4.1).
+# t format: "day<N> HH:MM" (day1 = first day).
+probes:
+  impulse:
+    - {t: "day1 20:00", type: insult, source: marta, target: halgrim,
+       intensity: 0.8, room: common_room, context: {public: true}}
+  step:
+    - {t: "day2 06:00", type: weather, item: rain, intensity: 0.6,
+       until: "day2 18:00", every_ticks: 15}
+  control: []
+
+g0:
+  seed: 7
+  sweep:
+    # centered on the stable operating region found in G0 iterations A-E;
+    # >= 0.75 re-enters the chaotic band
+    transducer_scale: [0.4, 0.45, 0.5, 0.55, 0.6]
+    # recovery true = engine default idle recovery restored (canonical is off)
+    recovery: [false, true]
+    catalog_richness:
+      thin: {replenish_mult: 0.25, novelty_start_mult: 0.5}
+      normal: {replenish_mult: 1.0, novelty_start_mult: 1.0}
+      rich: {replenish_mult: 2.0, novelty_start_mult: 1.0}
+  corridor: {incidents_per_impulse_run: [4, 10]}
+  # An incident = a transducer-visible hostile action.
+  incident_def: {actions: [outburst, hostile_action], min_score: 0.0}

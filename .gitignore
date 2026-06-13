@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.egg-info/
+experiments/out/
+equilibrium-engine/
+.pytest_cache/
