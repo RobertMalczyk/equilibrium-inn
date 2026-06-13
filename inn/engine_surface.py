@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1] / "equilibrium-engine"
-PINNED_COMMIT = "3dcf4a3afbe0af42968d085436a77a0fb92af1d1"  # burst & saturation main
+PINNED_COMMIT = "0b7df59c06f9f1edfbe144d2c64c1a42c048c76b"  # Social Event Mapper Pack (cold_reply/refusal/complaint)
 
 
 def _engine_commit() -> str:
@@ -70,6 +70,9 @@ from eval.calibrated import (  # noqa: E402
 # any other type are invisible to personas; the transducer may only emit these.
 PERCEIVABLE_EVENTS: tuple[str, ...] = (
     "food_given", "insult", "help", "command", "nightfall", "weather", "activity",
+    # Social Event Mapper Pack (engine 0b7df59): three negative-but-not-insult
+    # relational events, each its own channel. These let the S3 declared gap close.
+    "cold_reply", "refusal", "complaint",
 )
 
 # The complete set of action ids the engine's action selector can place in
