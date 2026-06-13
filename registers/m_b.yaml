@@ -1,0 +1,67 @@
+milestone: M-B (G1 follow-through + S3 gap closure + two-profile split)
+state: IN PROGRESS. PR #1 (G1 audit) merged to main. Engine pin bumped to the
+  Social Event Mapper Pack (0b7df59). S3 declared gap CLOSED (step 2a). Two-
+  profile split + fresh semantic-profile G0 sweep (steps 2b/2c) NOT yet done.
+  41 tests green. Control golden UNCHANGED (control has no probes).
+updated: 2026-06-13
+engine_commit: 0b7df59c06f9f1edfbe144d2c64c1a42c048c76b
+
+# ============================================================
+# DONE THIS SESSION
+# ============================================================
+done:
+  - id: merge-pr1
+    what: Merged PR #1 (G1 audit) into main (commit 39dc2ab). Brings the
+      action-coverage gate (ENGINE_ACTIONS), phantom hostile_action removal,
+      and contract tests onto main. Verified nothing in PR #1 needed redoing
+      against the mapper pack; only the "S3 gap KEPT" ruling is superseded.
+  - id: step-1-pin-bump
+    what: Bumped engine pin 3dcf4a3 -> 0b7df59 in engine_surface.py +
+      inn.yaml meta.engine_commit; added cold_reply/refusal/complaint to
+      PERCEIVABLE_EVENTS. Behavior-neutral (golden unchanged). Commit c42a618.
+  - id: step-2a-close-gap
+    what: Moved refuse/cold_response/complain out of declared_gaps into real
+      transducer rows. Commit 22c6a4e.
+    rows:
+      refuse:        {as: refusal,   floor: 0.20, witnessed: "public, attenuation 0.15"}
+      complain:      {as: complaint, floor: 0.15, witnessed: "no (direct-only, MVP)"}
+      cold_response: {as: cold_reply, floor: 0.10, witnessed: "no (direct-only, MVP)"}
+    decision: "DEC-S3-rows = refusal witnessed, complaint/cold_reply direct-only
+      (user audit 2026-06-13). Floors PROVISIONAL, to be tuned by the 2c sweep."
+    datapoint: "Canonical impulse (scale 0.5, recovery off, normal) under the
+      closed gap = 11 incidents (outburst-only def), 0.0 clamp dwell, 0 gaps.
+      10 -> 11: the two-way loop is mildly escalating but stays damped, no
+      saturation. Full recharacterization is step 2c."
+
+# ============================================================
+# REMAINING (NEXT SESSION — START HERE)
+# ============================================================
+remaining:
+  - id: step-2b-two-profiles
+    what: Implement DEC-1 two-profile split. g0_stability_profile = current
+      hearth config (frozen). game_semantic_profile = Option B (partial
+      frustration-only idle recovery, weaker fallback, scarcity restored),
+      shipped as DEFAULT. Mechanism = inn.yaml profile blocks selecting
+      engine_overrides + catalog mults; loop/session take a profile name.
+  - id: step-2c-semantic-sweep
+    what: Re-run the G0 sweep for game_semantic_profile WITH the gap closed.
+      The old 4-10 corridor + golden were measured gap-OPEN; both move. Decide
+      the incident definition - do refusal/complaint/cold_reply count as
+      "incidents" (CLAUDE.md S7 = "transducer-visible hostile action")? Likely
+      NO (they are sub-insult), but record the ruling. Re-baseline golden
+      deliberately at the end (python -m experiments.regen_golden).
+    open_question: incident_def scope under the closed gap (see above).
+  - id: step-2d-housekeeping
+    what: Formalize QA-corpus harvest (experiments/out/g0/harvest/); file the
+      outburst self-vent engine finding; final CLAUDE.md pass.
+
+# ============================================================
+# CARRIED FORWARD (G1 rulings still binding — see registers/m_a.yaml g1_decisions)
+# ============================================================
+g1_rulings_status:
+  DEC-1: "two profiles — hearth frozen + semantic default. Pending impl (2b)."
+  DEC-2: "semantic = partial frustration-only idle recovery. Pending impl (2b)."
+  DEC-3: "outburst vent -0.50 BLESSED. In effect."
+  DEC-4: "reactive_window_ticks=1 BLESSED. In effect."
+  DEC-5: "witnessing 0.5 (root) / 0.15 (hop) BLESSED. In effect."
+  S3:    "SUPERSEDED — was KEEP-as-gap; engine 0b7df59 closed it; wired in 2a."
