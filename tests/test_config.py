@@ -14,7 +14,11 @@ def test_loads_and_validates():
     assert cfg.cast_order["wojslaw"] == 0  # cast order = contention tiebreak
     assert cfg.transducer.rows["outburst"].as_event == "insult"
     assert cfg.transducer.rows["outburst"].floor == 0.30
-    assert "refuse" in cfg.transducer.declared_gaps
+    # S3 gap closed: the three negative social actions are now real rows.
+    assert cfg.transducer.declared_gaps == ()
+    assert cfg.transducer.rows["refuse"].as_event == "refusal"
+    assert cfg.transducer.rows["cold_response"].as_event == "cold_reply"
+    assert cfg.transducer.rows["complain"].as_event == "complaint"
     assert cfg.probes["impulse"][0].target == "halgrim"
     assert len(cfg.yaml_sha256) == 64
 

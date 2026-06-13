@@ -114,14 +114,18 @@ and the day precipitates out of schedule × catalog × cast.
 |---|---|---|---|
 | outburst | `insult`, source = actor | full intensity | attenuated, `public: true` |
 | cooperate, positive_response | `help`, source = actor | full | none (MVP) |
+| refuse | `refusal`, source = actor | full | attenuated, `public: true` |
+| complain | `complaint`, source = actor | full | none (MVP) |
+| cold_response | `cold_reply`, source = actor | full | none (MVP) |
 | seek_stimulus, rest, activities | none (MVP) | — | — |
-| refuse, cold_response, complain | **none — DECLARED GAP** | — | — |
 
-The gap row means the authority loop closes one way only (Wojsław cannot *feel* being
-refused). This ships stated, surfaced in the chronicle, and is the flagship candidate
-for the first spec extension — to be designed together with the in-flight
-pride→insult-anger work, since "my command was publicly refused" is the canonical pride
-input. Do not quietly invent a `refused` event type to fix it here.
+**S3 gap CLOSED (engine `0b7df59`, Social Event Mapper Pack).** The authority loop now
+closes both ways: the three negative-but-not-insult social actions map to their own
+relational events (`refusal`/`complaint`/`cold_reply`), each its own engine channel
+(NOT aliased to `insult`). `refuse` is witnessed — "my request was publicly refused" is
+the canonical pride input — while `complaint`/`cold_reply` are direct-only in the MVP.
+Floors are provisional, tuned by the M-B semantic-profile G0 sweep. The flagship spec
+extension that this gap was waiting on is the engine change that landed these events.
 
 ### 4.3 The tick loop — frozen semantics
 
@@ -268,12 +272,14 @@ open questions) in the project's usual style; update it at every AUDIT.
 
 **Frozen (change requires the user, in writing, here):** one-tick social latency; the
 engine is consumed at a pinned tag through its public surface only; no LLM in the loop;
-the transducer's declared gap ships as a gap; all behavior-shaping numbers live in
-`inn.yaml`; analysis reads only the trace; deterministic contention tiebreak; nights
-simulated honestly.
+all behavior-shaping numbers live in `inn.yaml`; analysis reads only the trace;
+deterministic contention tiebreak; nights simulated honestly. (The transducer's S3
+declared gap was a frozen decision through G1; it is now CLOSED by the engine's Social
+Event Mapper Pack — see §4.2.)
 
-**Deferred, named, not in this build:** symmetric social perception event types (spec
-amendment, co-designed with pride→insult-anger); `ActionSelection.target` as an explicit
+**Deferred, named, not in this build:** ~~symmetric social perception event types~~
+(DONE — landed as the engine's Social Event Mapper Pack `0b7df59` and wired in M-B, §4.2);
+`ActionSelection.target` as an explicit
 trace field (touches the frozen trace shape — goes through spec + golden regeneration);
 world states as engine citizens (GlobalState vocabulary generalization); incident
 choreography (storm-off room changes); more rooms / economy beyond the pot; LLM

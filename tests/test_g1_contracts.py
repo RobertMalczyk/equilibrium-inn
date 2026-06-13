@@ -81,28 +81,34 @@ def test_coverage_gate_rejects_phantom_action(tmp_path):
         load_inn_config(bad)
 
 
-def test_declared_gaps_are_the_documented_waiver():
-    """The one-way authority loop ships as a KNOWN gap for exactly these three
-    actions (CLAUDE.md section 4.2). Changing the set is a G1 decision; this
-    test fails loudly if it drifts silently."""
-    assert set(CFG.transducer.declared_gaps) == {"refuse", "cold_response", "complain"}
+def test_s3_gap_is_closed():
+    """The S3 one-way-authority gap is now CLOSED (engine 0b7df59 Social Event
+    Mapper Pack): the three negative social actions have real transducer rows
+    and there are no declared gaps left. Re-opening a gap is a G1 decision; this
+    test fails loudly if the set drifts."""
+    assert CFG.transducer.declared_gaps == ()
+    assert CFG.transducer.rows["refuse"].as_event == "refusal"
+    assert CFG.transducer.rows["cold_response"].as_event == "cold_reply"
+    assert CFG.transducer.rows["complain"].as_event == "complaint"
 
 
 # -- 2. declared-gap trace-visibility --------------------------------------
 
-def test_target_gap_reaction_is_trace_visible_not_silent():
-    """A direct target that answers with a declared-gap action (e.g. Halgrim's
-    cold_response to an insult) is RECORDED as a gap — its reaction is not lost
-    from the trace, only from the social world. This is the distinction the
-    audit turns on: witness-borne escalation is not the ONLY trace-visible
-    consequence of a scene."""
-    gap = transduce(CFG, 100, "halgrim", _sel("cold_response", 0.6),
-                    provoking_source="marta", provoking_id="99:marta:insult:probe",
-                    cohort=["halgrim", "welf"])
-    assert gap.addressed == []
-    assert len(gap.gaps) == 1 and gap.gaps[0].action == "cold_response"
-    assert gap.gaps[0].provoked_by == "99:marta:insult:probe"
-    # a truly silent action leaves NOTHING — gaps are strictly louder than silence
+def test_target_reaction_now_feeds_the_social_world():
+    """With the S3 gap closed, a direct target that answers with cold_response
+    (e.g. Halgrim to an insult) now emits a real cold_reply back to the
+    provoker — the authority loop closes both ways. A truly silent action
+    (neutral) still leaves NOTHING; the distinction the audit turns on is
+    preserved (silence is strictly emptier than a transduced reaction)."""
+    r = transduce(CFG, 100, "halgrim", _sel("cold_response", 0.6),
+                  provoking_source="marta", provoking_id="99:marta:insult:probe",
+                  cohort=["halgrim", "welf"])
+    assert r.gaps == []
+    assert [a.role for a in r.addressed] == ["target"]  # direct-only, no witnesses
+    assert r.addressed[0].recipient == "marta"
+    assert r.addressed[0].event.type == "cold_reply"
+    assert r.addressed[0].provenance.provoked_by == "99:marta:insult:probe"
+    # a truly silent action leaves NOTHING — neutral is strictly emptier
     silent = transduce(CFG, 100, "halgrim", _sel("neutral", 0.0),
                        provoking_source=None, provoking_id=None, cohort=["halgrim"])
     assert silent.addressed == [] and silent.gaps == []

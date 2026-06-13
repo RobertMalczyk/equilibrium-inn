@@ -210,10 +210,24 @@ transducer:
       {as: help, floor: 0.20, witnesses: null}
     positive_response:
       {as: help, floor: 0.20, witnesses: null}
-  # DECLARED GAP: these actions are socially real but produce no perceivable
-  # event. The authority loop closes one way only. Ships as a gap; flagship
-  # candidate for the first spec extension. Do not invent event types here.
-  declared_gaps: [refuse, cold_response, complain]
+    # S3 gap CLOSED (engine 0b7df59 Social Event Mapper Pack): the three
+    # negative-but-not-insult social actions now emit their own relational
+    # events. Magnitude ordering follows the engine's calibration intent
+    # (insult > complaint ~ refusal > cold_reply); floors are PROVISIONAL,
+    # to be tuned by the M-B semantic-profile G0 sweep. cold_reply/complaint
+    # are direct-only (no witnesses); refusal is witnessed public: true — "my
+    # request was publicly refused" is the canonical pride input (CLAUDE.md
+    # §4.2). Witness attenuation 0.15 follows the insult policy (witnessing
+    # primes, does not conscript — G0 finding F3).
+    refuse:
+      {as: refusal, floor: 0.20, witnesses: {attenuation: 0.15, public: true}}
+    cold_response:
+      {as: cold_reply, floor: 0.10, witnesses: null}
+    complain:
+      {as: complaint, floor: 0.15, witnesses: null}
+  # The S3 declared gap is now closed (see rows above). No action the engine can
+  # select is left mute; the coverage gate (config load) enforces completeness.
+  declared_gaps: []
   # Actions with no social surface at all in the MVP. MUST exactly cover the
   # non-transduced, non-gap members of engine_surface.ENGINE_ACTIONS (coverage
   # gate in config.load_inn_config); `neutral` is the selector's idle/no-op
@@ -241,7 +255,10 @@ contention:
 inbox_policy:
   rule: priority_defer
   max_defer_ticks: 5
-  priority: [insult, help, command, food_given, activity, nightfall, weather]
+  # Negative social events (S3) rank just below insult by salience, above the
+  # neutral/positive surfaces; order within the negatives follows magnitude.
+  priority: [insult, refusal, complaint, cold_reply, help, command, food_given,
+             activity, nightfall, weather]
 
 # Probe plans: the scenario concept reduced to these (section 4.1).
 # t format: "day<N> HH:MM" (day1 = first day).
