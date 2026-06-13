@@ -113,7 +113,6 @@ and the day precipitates out of schedule × catalog × cast.
 | ActionId | Perceived as | Direct target | Witnesses in room |
 |---|---|---|---|
 | outburst | `insult`, source = actor | full intensity | attenuated, `public: true` |
-| hostile_action | `insult` | full, raised intensity floor | attenuated, `public: true` |
 | cooperate, positive_response | `help`, source = actor | full | none (MVP) |
 | seek_stimulus, rest, activities | none (MVP) | — | — |
 | refuse, cold_response, complain | **none — DECLARED GAP** | — | — |
@@ -292,3 +291,26 @@ answer is ambiguous).
    world attenuation, as world config.
 4. Whether G0's stability check stays purely empirical or is paired with the formal
    linearized analysis from the start.
+
+### G1 audit rulings (decided 2026-06-13, by the user, in writing)
+
+Following the G1 semantic audit (`experiments/out/g0/G1_audit.md`):
+
+- **DEC-1 (scarcity fork): TWO PROFILES.** Keep the current hearth config as
+  `g0_stability_profile` (frozen, proven, the G0 golden). Add `game_semantic_profile`
+  (Option B: frustration-only idle recovery, weaker fallback, scarcity restored) and make
+  it the shipped game default. M-B must re-run the G0 sweep to recharacterize the corridor
+  for the semantic profile.
+- **DEC-2 (idle recovery):** `game_semantic_profile` uses PARTIAL recovery — frustration
+  recovers when idle, stress/anger do not. `g0_stability_profile` keeps idle recovery fully
+  off (unchanged).
+- **DEC-3/4/5 (overrides): BLESSED as intended v1 semantics** — the outburst anger vent
+  (−0.50), `reactive_window_ticks=1`, and the root/hop witnessing asymmetry (0.5 / 0.15).
+  An engine finding is still filed for the outburst vent (the engine's `outburst` should
+  vent its own anger).
+- **S3 (transducer gap): KEEP as a declared gap for G1.** `refuse`/`cold_response`/`complain`
+  ship mute; file an engine finding to add symmetric social-perception event types,
+  co-designed with the engine's pride→insult-anger work (§9 deferred). Not a blocker for G1.
+
+G1 semantics are signed off on this basis; M-B implements the two-profile split + the
+semantic-profile sweep + the engine findings.

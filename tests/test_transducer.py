@@ -35,10 +35,12 @@ def test_outburst_targets_and_witnesses():
 
 
 def test_floor_applies():
-    r = transduce(CFG, 100, "halgrim", _sel("hostile_action", 0.1),
+    # root provocation (provoking_id is None) -> floor applies; score*scale
+    # (0.1 * 0.5 = 0.05) is below the outburst floor 0.30, so the floor wins.
+    r = transduce(CFG, 100, "halgrim", _sel("outburst", 0.1),
                   provoking_source="wojslaw", provoking_id=None, cohort=COHORT)
     target = next(a for a in r.addressed if a.role == "target")
-    assert target.event.intensity == 0.5  # floor for hostile_action
+    assert target.event.intensity == 0.30  # floor for outburst
 
 
 def test_declared_gap_emits_nothing_but_is_logged():

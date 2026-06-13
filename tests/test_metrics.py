@@ -20,7 +20,7 @@ def impulse_records(tmp_path_factory):
 
 
 def test_incidents_and_cascades(impulse_records):
-    incs = M.incidents(impulse_records, ("outburst", "hostile_action"))
+    incs = M.incidents(impulse_records, ("outburst",))
     assert incs, "the impulse probe must produce at least one incident"
     cs = M.cascade_stats(incs)
     assert cs["n_cascades"] >= 1

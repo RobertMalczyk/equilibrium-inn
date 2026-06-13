@@ -13,7 +13,12 @@ from pathlib import Path
 
 import yaml
 
-from inn.engine_surface import ENGINE_ROOT, PERCEIVABLE_EVENTS, PINNED_COMMIT
+from inn.engine_surface import (
+    ENGINE_ACTIONS,
+    ENGINE_ROOT,
+    PERCEIVABLE_EVENTS,
+    PINNED_COMMIT,
+)
 
 
 def _check_keys(d: dict, allowed: set[str], where: str) -> None:
@@ -232,6 +237,24 @@ def load_inn_config(path: str | Path) -> InnConfig:
     overlap = set(rows) & set(table.declared_gaps)
     if overlap:
         raise ValueError(f"actions both transduced and declared gaps: {sorted(overlap)}")
+
+    # G1 coverage gate: every action the engine can select must be accounted
+    # for — transduced, declared a gap, or declared silent — and no entry may
+    # name a phantom action the engine never emits (that catches dead config
+    # like the removed `hostile_action`). Without this, a selectable action the
+    # table forgets falls through transduce() untraced (semantic-correctness
+    # regression). See engine_surface.ENGINE_ACTIONS.
+    accounted = set(rows) | set(table.declared_gaps) | set(table.silent)
+    uncovered = ENGINE_ACTIONS - accounted
+    if uncovered:
+        raise ValueError(
+            f"transducer does not account for engine actions {sorted(uncovered)} "
+            "(add each to rows, declared_gaps, or silent)")
+    phantom = accounted - set(ENGINE_ACTIONS)
+    if phantom:
+        raise ValueError(
+            f"transducer references actions the engine never emits {sorted(phantom)} "
+            "(remove them or re-verify ENGINE_ACTIONS against the engine pin)")
 
     world_states = tuple(
         WorldStateSpec(name=name, rooms=tuple(w["rooms"]),

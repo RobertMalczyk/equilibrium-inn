@@ -72,9 +72,30 @@ PERCEIVABLE_EVENTS: tuple[str, ...] = (
     "food_given", "insult", "help", "command", "nightfall", "weather", "activity",
 )
 
+# The complete set of action ids the engine's action selector can place in
+# ActionSelection.action at the pinned commit (3dcf4a3). Derived from
+# engine/action_selector.py (literal returns: "neutral", "sleep",
+# "seek_stimulus") and calibration/defaults.yaml drives + reactive potentials
+# (the proactive/reactive `name` values and BUSY `active_action`s). The inn's
+# transducer table MUST account for every one of these — as a transduced row,
+# a declared gap, or a silent (no-social-surface) action — enforced at config
+# load (config.load_inn_config). RE-VERIFY this set whenever the engine pin is
+# bumped: a new selectable action that is not listed here will slip through the
+# transducer untraced (this is the regression the coverage gate exists to stop).
+ENGINE_ACTIONS: frozenset[str] = frozenset({
+    # default / no-op / sleep
+    "neutral", "sleep",
+    # proactive drives (and the BUSY active_actions they sustain)
+    "seek_stimulus", "rest", "self_activity", "external", "command_other",
+    # reactive (command/affront/kindness gated)
+    "outburst", "cold_response", "complain", "cooperate", "refuse",
+    "positive_response",
+})
+
 __all__ = [
     "ENGINE_ROOT",
     "PERCEIVABLE_EVENTS",
+    "ENGINE_ACTIONS",
     "GLOBAL_STATES",
     "RELATION_DIMS",
     "PINNED_COMMIT",

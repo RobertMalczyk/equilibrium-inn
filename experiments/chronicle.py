@@ -24,7 +24,7 @@ from inn.config import load_inn_config
 from eval.render_narration import DISPLAY, REACTIVE_TIERS, WHO  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-INCIDENT_ACTIONS = ("outburst", "hostile_action")
+INCIDENT_ACTIONS = ("outburst",)
 
 
 def _quiet(n: int) -> str:
