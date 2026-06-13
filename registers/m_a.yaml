@@ -256,3 +256,51 @@ artifacts:
   - experiments/out/g0/g0_report.md
   - experiments/out/g0/formal_analysis.json
   - experiments/out/g0/harvest/ (scenario-format QA corpus export)
+
+# ---------------------------------------------------------------------------
+g1_audit:  # 2026-06-13, external (ChatGPT) review of the engine<->world boundary
+  premise: stability != semantic correctness; verify root cause vs damping.
+  shipped_low_risk:
+    - ENGINE_ACTIONS vocabulary + config-load coverage gate: every selectable
+      engine action must be a row / declared_gap / silent, and no entry may
+      name a phantom action (engine_surface.py, config.py).
+    - "`neutral` (selector idle default, most-emitted) was an UNDECLARED
+      fall-through; now silent. Phantom idle/continue/eat removed from silent."
+    - "phantom `hostile_action` removed (transducer row + action_params
+      override + half the g0 incident_def). 0 occurrences in engine; control
+      golden hash UNCHANGED -> proves it was inert dead config."
+    - 10 deterministic contract tests (tests/test_g1_contracts.py); 3 existing
+      tests migrated off hostile_action. 41 tests green.
+  surfaced_not_changed:  # user G1 decisions; this audit confirms+refiles, not decides
+    S3_transducer_gap: refuse/cold_response/complain still mute. CONFIRMED
+      load-bearing - impulse target Halgrim answers cold_response (a gap) so
+      the direct target's reaction never re-enters the social world; ignition
+      is witness-borne. NOT a trace loss (recorded as GapRecord) - a social-
+      world loss. Flagship engine spec extension; new event types forbidden by
+      contract and G0-altering. Keep as gap for G1; file engine finding.
+    overrides_audited: all engine_overrides checked against real engine params.
+      idle_recovery-off (DEC-2) and reactive_window_ticks=1 (DEC-4) = class (c)
+      suspicious-damping; outburst vent -0.50 (DEC-3) = class (a) necessary.
+    scarcity_immunity: hearth confirmed to flatten incidents across catalog
+      richness (DEC-1). Review's two-profile idea = Option B as selectable
+      profile.
+  player_model: M-C not built. event_sources have no runtime/inbox (locked by
+    test). GAP for M-C: run_session hardcodes injected_events:[]; extra_events
+    bypasses witness fan-out + session log. Player must route via _deliver_probe.
+  core_engine: clean - no room/witness logic in engine; only param_overrides;
+    persona files untouched.
+  deliverable: experiments/out/g0/G1_audit.md
+
+g1_decisions:  # 2026-06-13, user rulings on the G1 audit (CLAUDE.md section 10)
+  DEC-1_scarcity: TWO_PROFILES. hearth config -> g0_stability_profile (frozen,
+    the golden). New game_semantic_profile (Option B) is the shipped default.
+    M-B: re-run G0 sweep to recharacterize the corridor for the semantic profile.
+  DEC-2_idle_recovery: game_semantic_profile = PARTIAL (frustration-only;
+    stress/anger stay off). g0_stability_profile = fully off (unchanged).
+  DEC-3_outburst_vent: BLESSED (anger -0.50) + file engine finding.
+  DEC-4_reactive_window: BLESSED (reactive_window_ticks=1).
+  DEC-5_witnessing_asymmetry: BLESSED (root 0.5 / hop 0.15).
+  S3_transducer_gap: KEEP as declared gap for G1; file engine finding for
+    symmetric social-perception event types (co-design w/ pride->insult-anger).
+  status: G1 semantics SIGNED OFF on this basis. M-B implements the two-profile
+    split + semantic-profile sweep + the two engine findings.

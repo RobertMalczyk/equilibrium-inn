@@ -103,7 +103,6 @@ engine_overrides:
       post_effects:
         global: {anger: -0.50}
         source_relations: {resentment: 0.15}
-    hostile_action: {cooldown: 15}
   thresholds:
     # latch must catch real fights: anger 0.70 + stress 0.40 is the observed
     # mid-fight operating point; at 0.80/0.60 the latch never set and the
@@ -207,8 +206,6 @@ transducer:
     # it does not conscript. 6 witnesses x 0.15 keeps per-hop fan-out < 1.
     outburst:
       {as: insult, floor: 0.30, witnesses: {attenuation: 0.15, public: true}}
-    hostile_action:
-      {as: insult, floor: 0.50, witnesses: {attenuation: 0.15, public: true}}
     cooperate:
       {as: help, floor: 0.20, witnesses: null}
     positive_response:
@@ -217,9 +214,12 @@ transducer:
   # event. The authority loop closes one way only. Ships as a gap; flagship
   # candidate for the first spec extension. Do not invent event types here.
   declared_gaps: [refuse, cold_response, complain]
-  # Actions with no social surface at all in the MVP.
-  silent: [seek_stimulus, rest, idle, continue, sleep, self_activity, external,
-           command_other, eat]
+  # Actions with no social surface at all in the MVP. MUST exactly cover the
+  # non-transduced, non-gap members of engine_surface.ENGINE_ACTIONS (coverage
+  # gate in config.load_inn_config); `neutral` is the selector's idle/no-op
+  # default and is the most-emitted action, so it belongs here explicitly.
+  silent: [neutral, sleep, seek_stimulus, rest, self_activity, external,
+           command_other]
 
 witnessing:
   # Applies to ROOT events (probes / player verbs): a stranger making a scene
@@ -267,5 +267,7 @@ g0:
       normal: {replenish_mult: 1.0, novelty_start_mult: 1.0}
       rich: {replenish_mult: 2.0, novelty_start_mult: 1.0}
   corridor: {incidents_per_impulse_run: [4, 10]}
-  # An incident = a transducer-visible hostile action.
-  incident_def: {actions: [outburst, hostile_action], min_score: 0.0}
+  # An incident = a transducer-visible hostile action. `outburst` is the only
+  # hostile action the engine emits at the pinned commit (the former
+  # `hostile_action` entry was phantom — removed in the G1 audit).
+  incident_def: {actions: [outburst], min_score: 0.0}

@@ -13,7 +13,7 @@ def test_loads_and_validates():
     assert len(cfg.cast) == 7
     assert cfg.cast_order["wojslaw"] == 0  # cast order = contention tiebreak
     assert cfg.transducer.rows["outburst"].as_event == "insult"
-    assert cfg.transducer.rows["hostile_action"].floor == 0.50
+    assert cfg.transducer.rows["outburst"].floor == 0.30
     assert "refuse" in cfg.transducer.declared_gaps
     assert cfg.probes["impulse"][0].target == "halgrim"
     assert len(cfg.yaml_sha256) == 64
