@@ -75,17 +75,21 @@ class InnLoop:
                  transducer_scale: float | None = None,
                  richness_mults: dict | None = None,
                  persona_loader: Callable[[str], object] | None = None,
-                 extra_events: list[tuple[int, str, RawEvent]] | None = None):
+                 extra_events: list[tuple[int, str, RawEvent]] | None = None,
+                 profile: str | None = None):
         self.cfg = cfg
+        self.profile = profile
         self.clock = Clock.from_layout(believable_day_layout())
         self.stream = ScheduleStream(cfg, self.clock)
         self.presence = Presence(cfg, self.stream, self.clock)
-        self.economy = Economy(cfg, self.clock, richness_mults)
+        self.economy = Economy(cfg, self.clock, richness_mults,
+                               disabled_activities=cfg.disabled_activities(profile))
         self.world = WorldStates(cfg.world_states, self.clock.dt)
         self.trace = trace
         self.scale = transducer_scale
         self.rng = random.Random(seed)  # reserved for inherited stochastic choices
-        loader = persona_loader or make_persona_loader(cfg.engine_overrides)
+        loader = persona_loader or make_persona_loader(
+            cfg.resolved_engine_overrides(profile))
         self.runtimes: dict[str, PersonaRuntime] = {
             c.id: init_runtime(loader(c.id)) for c in cfg.cast
         }

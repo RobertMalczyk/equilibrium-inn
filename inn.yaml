@@ -133,6 +133,28 @@ engine_overrides:
     urge_boredom:
       stress: 0.60
 
+# Profiles (CLAUDE.md DEC-1): two instrument characters over ONE inn.yaml. Each
+# overlays an engine_overrides delta (deep-merged onto the base above) plus a set
+# of catalog entries to disable. The base config IS the hearth-stable profile, so
+# `g0_stability_profile` is an empty overlay (byte-identical to the frozen G0
+# operating point and its golden). `game_semantic_profile` is Option B: it adds a
+# partial, frustration-ONLY idle recovery (DEC-2 — stress/anger still linger, so
+# the day-1 grudge carries as corridor texture; only the frustration ratchet is
+# relieved) and disables the hearth fallback, which RESTORES scarcity (a thin
+# evening catalog again starves some seekers -> a thin<normal<rich gradient that
+# the hearth otherwise neutralizes). frustration recovery rate is PROVISIONAL,
+# to be tuned by the semantic G0 sweep. default names the shipped profile, but
+# selection is still explicit at call sites until the M-B audit ratifies a flip.
+profiles:
+  default: game_semantic_profile
+  g0_stability_profile:
+    engine_overrides: {}
+    disable_activities: []
+  game_semantic_profile:
+    engine_overrides:
+      idle_recovery: {frustration: -0.010}
+    disable_activities: [hearth_idle]
+
 meals:
   # Meal events are food_given from marta, item by rotation per meal slot.
   source: marta

@@ -64,11 +64,14 @@ class ActivitySource:
 
 class Economy:
     def __init__(self, cfg: InnConfig, clock: Clock,
-                 richness_mults: dict | None = None):
+                 richness_mults: dict | None = None,
+                 disabled_activities: frozenset[str] = frozenset()):
         self.cfg = cfg
         self.clock = clock
         self.sources: dict[str, ActivitySource] = {}
         for aid, entry in cfg.activities.items():
+            if aid in disabled_activities:  # profile (e.g. semantic) drops the hearth
+                continue
             src = ActivitySource(entry)
             if richness_mults:
                 src.budget = entry.novelty_start * richness_mults.get("novelty_start_mult", 1.0)
@@ -108,8 +111,8 @@ class Economy:
             room = room_of(pid)
             waited = 0 if seeking_since is None else t - seeking_since
             for aid in self.cfg.activities:  # catalog order: deterministic
-                src = self.sources[aid]
-                if src.entry.room != room or not src.available(self.clock, t):
+                src = self.sources.get(aid)  # None if disabled by the profile
+                if src is None or src.entry.room != room or not src.available(self.clock, t):
                     continue
                 if waited < src.entry.offer_latency:
                     continue

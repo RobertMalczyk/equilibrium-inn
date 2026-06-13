@@ -16,6 +16,7 @@ import yaml
 from inn.engine_surface import (
     ENGINE_ACTIONS,
     ENGINE_ROOT,
+    GLOBAL_STATES,
     PERCEIVABLE_EVENTS,
     PINNED_COMMIT,
 )
@@ -25,6 +26,16 @@ def _check_keys(d: dict, allowed: set[str], where: str) -> None:
     unknown = set(d) - allowed
     if unknown:
         raise ValueError(f"{where}: unknown keys {sorted(unknown)}")
+
+
+def deep_merge(a: dict, b: dict) -> dict:
+    """Recursive dict overlay (b wins). Used to stack profile/sweep deltas on
+    the base engine_overrides without mutating either input."""
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in a.items()}
+    for k, v in b.items():
+        out[k] = (deep_merge(out[k], v)
+                  if isinstance(v, dict) and isinstance(out.get(k), dict) else v)
+    return out
 
 
 @dataclass(frozen=True)
@@ -107,6 +118,17 @@ class Probe:
 
 
 @dataclass(frozen=True)
+class ProfileSpec:
+    """A named instrument character (CLAUDE.md DEC-1). Selects an
+    engine_overrides delta (deep-merged onto the base) plus a set of catalog
+    entries to disable, so the same inn.yaml yields the frozen hearth-stable
+    profile or the scarcity-faithful semantic profile."""
+    name: str
+    engine_overrides: dict
+    disable_activities: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class InnConfig:
     days: int
     engine_commit: str
@@ -128,7 +150,25 @@ class InnConfig:
     provoking_event_types: tuple[str, ...]
     g0: dict
     engine_overrides: dict
+    profiles: dict[str, ProfileSpec]
+    default_profile: str | None
     yaml_sha256: str
+
+    def resolved_engine_overrides(self, profile: str | None) -> dict:
+        """Base engine_overrides with the named profile's delta stacked on top.
+        profile=None -> the bare base (historical/no-profile behavior)."""
+        if profile is None:
+            return self.engine_overrides
+        if profile not in self.profiles:
+            raise ValueError(f"unknown profile {profile!r}")
+        return deep_merge(self.engine_overrides, self.profiles[profile].engine_overrides)
+
+    def disabled_activities(self, profile: str | None) -> frozenset[str]:
+        if profile is None:
+            return frozenset()
+        if profile not in self.profiles:
+            raise ValueError(f"unknown profile {profile!r}")
+        return frozenset(self.profiles[profile].disable_activities)
 
 
 def _parse_probe(p: dict) -> Probe:
@@ -158,7 +198,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
     _check_keys(doc, {"meta", "cast", "event_sources", "rooms", "schedules",
                       "meals", "activities", "transducer", "witnessing",
                       "world", "world_states", "contention", "inbox_policy",
-                      "probes", "g0", "engine_overrides"}, "inn.yaml")
+                      "probes", "g0", "engine_overrides", "profiles"}, "inn.yaml")
 
     meta = doc["meta"]
     if meta["engine_commit"] != PINNED_COMMIT:
@@ -284,6 +324,30 @@ def load_inn_config(path: str | Path) -> InnConfig:
             raise ValueError(
                 f"world.provoking_event_types lists non-perceivable type {ev_type!r}")
 
+    # Profiles (CLAUDE.md DEC-1): named instrument characters. Each overlays an
+    # engine_overrides delta + disables some catalog entries. `default` names the
+    # shipped profile. Absent block -> no profiles, no default (bare base config).
+    prof_doc = doc.get("profiles") or {}
+    default_profile = prof_doc.get("default")
+    profiles: dict[str, ProfileSpec] = {}
+    for pname, pspec in prof_doc.items():
+        if pname == "default":
+            continue
+        pspec = pspec or {}
+        _check_keys(pspec, {"engine_overrides", "disable_activities"}, f"profile {pname}")
+        eo = dict(pspec.get("engine_overrides", {}))
+        for state in eo.get("idle_recovery", {}):
+            if state not in GLOBAL_STATES:
+                raise ValueError(
+                    f"profile {pname}: idle_recovery state {state!r} is not a global state")
+        da = tuple(pspec.get("disable_activities", ()))
+        for aid in da:
+            if aid not in activities:
+                raise ValueError(f"profile {pname}: disable_activities unknown id {aid!r}")
+        profiles[pname] = ProfileSpec(name=pname, engine_overrides=eo, disable_activities=da)
+    if default_profile is not None and default_profile not in profiles:
+        raise ValueError(f"profiles.default {default_profile!r} is not a defined profile")
+
     sources = tuple(doc["event_sources"])
     probes = {name: tuple(_parse_probe(p) for p in plist)
               for name, plist in doc["probes"].items()}
@@ -318,5 +382,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
         provoking_event_types=provoking,
         g0=doc["g0"],
         engine_overrides=dict(doc.get("engine_overrides", {})),
+        profiles=profiles,
+        default_profile=default_profile,
         yaml_sha256=hashlib.sha256(raw_bytes).hexdigest(),
     )
