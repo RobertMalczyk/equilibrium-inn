@@ -326,12 +326,15 @@ VERIFIED to reproduce the observed action under the inn's shipped loader before 
 written (a manifest records the run). Output: `experiments/out/g0/harvest/`.
 
 **Milestones:** M-A instrument (compiler, presence, transducer+provenance, economy, inn
-loop, session log, society trace, metrics skeleton) + the G0 experiment and report.
-M-B G1 audit, corpus export, table revisions. M-C CLI stepper with discoverability +
-chronicle. M-D viewer extension (day bands, night compression, relation-graph
-snapshots, chronicle column) reusing the engine repo's demo viewer components.
-M-E baseline cast + regression harness + canonical protocols frozen. M-F (optional,
-post-G2) public extraction, Pyodide cockpit, equilibrium-engine.dev page.
+loop, session log, society trace, metrics skeleton) + the G0 experiment and report **[DONE]**.
+M-B G1 audit, mapper-pack + burst-calibration consumption, S3 gap closure, two-profile
+split, corpus export **[DONE]**. M-C CLI stepper with discoverability + chronicle **[DONE:
+`inn/cli.py` + shared `inn/chronicle.py`; player verbs route through the probe path;
+`why <name>` provenance; derived footer; `--menu`; session log]**. M-D viewer extension
+(day bands, night compression, relation-graph snapshots, chronicle column) reusing the
+engine repo's demo viewer components. M-E baseline cast + regression harness + canonical
+protocols frozen. M-F (optional, post-G2) public extraction, Pyodide cockpit,
+equilibrium-engine.dev page.
 
 Per-milestone register: keep a `registers/` YAML log (state, decisions, findings,
 open questions) in the project's usual style; update it at every AUDIT.

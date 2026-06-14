@@ -66,6 +66,15 @@ from eval.calibrated import (  # noqa: E402
     load_eval_persona_timescale,
     timescale_overrides,
 )
+# Narration vocabulary — sanctioned public surface (CLAUDE.md section 3): the
+# deterministic, de-biased display tables the chronicle/CLI render with (never
+# an LLM). DISPLAY/WHO = persona display names; REACTIVE_TIERS = action -> tiered
+# observable phrases by selection score.
+from eval.render_narration import (  # noqa: E402
+    DISPLAY,
+    REACTIVE_TIERS,
+    WHO,
+)
 
 # The mapper's perceivable-event vocabulary (CLAUDE.md section 2). Events of
 # any other type are invisible to personas; the transducer may only emit these.
@@ -116,4 +125,7 @@ __all__ = [
     "load_eval_persona_timescale",
     "timescale_overrides",
     "burst_overrides",
+    "DISPLAY",
+    "REACTIVE_TIERS",
+    "WHO",
 ]
