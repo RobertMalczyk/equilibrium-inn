@@ -1,0 +1,43 @@
+milestone: M-C (interactive CLI stepper)
+state: IMPLEMENTED. Turn-based CLI over the society trace; player verbs compile
+  to RawEvents through the SAME probe path as batch probes (player = a probe
+  source with a room + id, no interior). Deterministic, no LLM. 75 tests green.
+updated: 2026-06-14
+
+done:
+  - id: shared-render
+    what: >
+      inn/chronicle.py — the single source of chronicle rendering vocabulary
+      (who / reaction_phrase / event_line / why_chain), table lookups over the
+      engine narration vocabulary re-exported through engine_surface (DISPLAY,
+      REACTIVE_TIERS, WHO — sanctioned public surface, CLAUDE.md S3). Never an
+      LLM. experiments/chronicle.py now reuses it (de-duplicated).
+  - id: loop-hooks
+    what: >
+      Minimal interactive hooks in inn/loop.py: _step returns its trace record;
+      inject_player_probe(t, probe) queues a player verb delivered through the
+      SAME _deliver_probe path as batch probes (provenance + witnessing), NOT
+      the inbox-bypassing _extra hook (per the G1_audit player-model note).
+      Behaviour-neutral when unused (golden unchanged).
+  - id: cli
+    what: >
+      inn/cli.py — CliSession (testable core: do(line)->lines) + a thin REPL.
+      Verbs = the mapper's perceivable vocabulary (insult/help/praise/command/
+      serve <name>) + meta (wait [n], look, why <name>, sleep, help, quit).
+      Event-driven reporting (beats only when something happens; nights/quiet
+      compress). Derived footer (present targets + verbs). Forgiving errors
+      (suggest, never scold; bare verb prompts for target). --menu numbered mode.
+      readline tab-completion (guarded; skipped if absent). Session log
+      (engine commit + inn.yaml sha + seed + profile + injected verbs) for replay.
+      stdout reconfigured to utf-8 so the narration unicode survives a non-UTF-8
+      console (Windows cp1250).
+  - id: tests
+    what: "tests/test_cli.py (8): verb->probe + log, attributed reaction to the
+      player, why-chain to the external root, forgiving errors, footer, meta +
+      session log, name resolution, menu mapping. tests/test_harvest.py kept."
+
+deferred:
+  - "Replay FROM a CLI session log (re-inject injected_verbs) — the log is
+     written; a replay entrypoint is not yet wired."
+  - "LLM expression/perception seams (CLAUDE.md S6) — off by default, not built."
+  - "M-D viewer extension; M-E baseline cast + regression harness."

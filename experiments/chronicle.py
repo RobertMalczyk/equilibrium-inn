@@ -17,11 +17,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import inn.engine_surface  # noqa: F401  -- puts the engine root on sys.path first
 from inn import metrics as M
+from inn.chronicle import event_line, reaction_phrase, who  # noqa: F401 (shared render vocab)
 from inn.config import load_inn_config
-
-from eval.render_narration import DISPLAY, REACTIVE_TIERS, WHO  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 INCIDENT_ACTIONS = ("outburst",)
@@ -29,51 +27,6 @@ INCIDENT_ACTIONS = ("outburst",)
 
 def _quiet(n: int) -> str:
     return f"_({n} quiet tick{'s' if n != 1 else ''} pass{'' if n != 1 else 'es'}.)_"
-
-
-def who(name: str | None) -> str:
-    if not name:
-        return "someone"
-    return WHO.get(name, DISPLAY.get(name, name.capitalize()))
-
-
-def reaction_phrase(action: str, score: float) -> str:
-    tiers = REACTIVE_TIERS.get(action)
-    if not tiers:
-        return {"hostile_action": "turns on them, hostile"}.get(action, action)
-    phrase = tiers[0][1]
-    for thr, ph in tiers:
-        if score >= thr:
-            phrase = ph
-    return phrase
-
-
-def event_line(rec: dict) -> str | None:
-    """One observable beat for a tick, or None if nothing notable happened.
-    Built from the probe injections and the transduction log (the social acts
-    everyone in the room can see)."""
-    parts: list[str] = []
-    for p in rec.get("probes", []):
-        # probe records carry only the id+recipients; reconstruct from the
-        # transductions they triggered, so just flag the external act here
-        pid = p["probe"]
-        if ":insult:" in pid:
-            src = pid.split(":")[1]
-            parts.append(f"{who(src)} makes a scene — a public insult cuts across the room")
-        elif ":weather:" in pid:
-            parts.append("rain sets in; the yard empties and the common room fills")
-    # transductions: target-role lines are the visible reactions
-    for tr in rec.get("transductions", []):
-        if tr["role"] != "target":
-            continue
-        actor = who(tr["actor"])
-        target = who(tr["target_inferred"])
-        phrase = reaction_phrase(tr["action"], tr["score"])
-        if tr["target_inferred"] and tr["target_inferred"] != tr["actor"]:
-            parts.append(f"{actor} {phrase} at {target}")
-        else:
-            parts.append(f"{actor} {phrase}")
-    return "; ".join(parts) if parts else None
 
 
 def render(trace_dir: Path, cfg) -> str:

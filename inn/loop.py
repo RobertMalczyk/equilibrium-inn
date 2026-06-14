@@ -122,6 +122,13 @@ class InnLoop:
         self._weather_spans = self._weather_spans_of(cfg.probes[probe_plan])
         # injected events (player verbs later): (tick, recipient, event)
         self._extra = extra_events or []
+        # interactive player probes (M-C), delivered through _deliver_probe.
+        self._player_probes: dict[int, list[Probe]] = {}
+
+    def inject_player_probe(self, t: int, probe: Probe) -> None:
+        """Queue a player verb as a probe for tick t (>= the next tick to run);
+        delivered through the same path as batch probes."""
+        self._player_probes.setdefault(t, []).append(probe)
 
     # -- probe expansion ----------------------------------------------------
 
@@ -193,6 +200,10 @@ class InnLoop:
             for ev in self.stream.events_for(c.id, t):
                 self.inboxes[c.id].push(ev, t)
         for p in self._probe_schedule.get(t, []):
+            probe_records += self._deliver_probe(t, p)
+        # interactive player verbs (M-C): injected via the SAME probe path as
+        # batch probes (provenance + witnessing), not the inbox-bypassing _extra.
+        for p in self._player_probes.pop(t, []):
             probe_records += self._deliver_probe(t, p)
         for (et, recipient, ev) in self._extra:
             if et == t:
@@ -301,7 +312,7 @@ class InnLoop:
         self.world.step(conflict_by_room)
         self.economy.replenish_idle()
 
-        self.trace.emit({
+        record = {
             "t": t,
             "day": self.clock.day_of(t),
             "clock": self.clock.clock_str(t),
@@ -319,4 +330,6 @@ class InnLoop:
             "gaps": gap_records,
             "dropped": dropped_records,
             "rain": in_rain,
-        })
+        }
+        self.trace.emit(record)
+        return record
