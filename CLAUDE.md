@@ -330,11 +330,19 @@ loop, session log, society trace, metrics skeleton) + the G0 experiment and repo
 M-B G1 audit, mapper-pack + burst-calibration consumption, S3 gap closure, two-profile
 split, corpus export **[DONE]**. M-C CLI stepper with discoverability + chronicle **[DONE:
 `inn/cli.py` + shared `inn/chronicle.py`; player verbs route through the probe path;
-`why <name>` provenance; derived footer; `--menu`; session log]**. M-D viewer extension
-(day bands, night compression, relation-graph snapshots, chronicle column) reusing the
-engine repo's demo viewer components. M-E baseline cast + regression harness + canonical
-protocols frozen. M-F (optional, post-G2) public extraction, Pyodide cockpit,
-equilibrium-engine.dev page.
+`why <name>` provenance; derived footer; `--menu`; session log]**. M-D Observation Mode +
+Living Inn Observatory **[DONE: shared observation layer `inn/observe.py` (mood/mode labels,
+mode transitions w/ driver inference, threshold crossings, deterministic ambient summaries,
+per-persona daily summaries, generalized `why`, validation reports, `build_model`); CLI
+Observation Mode (`observe`/`report`/`plot`, ambient quiet spans replacing the opaque tick
+count, `help <name>`/sleep/target-presence fixes); `experiments/report_*.py`; the Observatory
+— one hand-rolled SVG/Canvas render layer with a self-contained HTML export
+(`python -m inn.observatory <trace_dir> -o run.html`) AND a Pyodide live cockpit
+(`observatory/build_bundle.py`); `experiments/g2_parity.py` (reference + static fallback).
+Observability/reporting only — zero dynamics changes; golden + import contract intact. See
+`registers/m_d.yaml`]**. M-E baseline cast + regression harness + canonical
+protocols frozen. M-F (optional, post-G2) public extraction, fully self-hosted Pyodide
+cockpit, equilibrium-engine.dev page.
 
 Per-milestone register: keep a `registers/` YAML log (state, decisions, findings,
 open questions) in the project's usual style; update it at every AUDIT.
