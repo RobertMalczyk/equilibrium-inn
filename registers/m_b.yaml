@@ -157,7 +157,21 @@ done:
       scale 0.45) = 8 incidents, depth 3, 6 cascades, clamp 0.0, 0 gaps, target
       attribution 14/14. Golden re-baselined to 3499...70. 65 tests green.
       Commit d91d105.
-  - id: step-2d-housekeeping-pending
+  - id: step-2d-housekeeping
+    what: >
+      DONE. Formalized the QA-corpus harvest as experiments/harvest.py: exports
+      the canonical impulse run's NPC reactions as engine-format scenario YAMLs
+      that capture the reactor's pre-tick context (global_state + relations),
+      prioritising NPC-to-NPC negative exchanges, each VERIFIED to reproduce the
+      observed action under the inn's shipped loader before writing (+ manifest).
+      Replaced the old broken g0_report.harvest_exchanges (stale cell path, empty
+      initial_overrides). tests/test_harvest.py (2). Final CLAUDE.md pass: S4.2
+      burst-overlay finding, S8 harvest, S9 deferred engine coupled-stability,
+      S10 M-B rulings (DEC-6/7/8 + incident_def). 67 tests green, ruff clean
+      (new files). The outburst self-vent engine finding is SUPERSEDED by the
+      burst-overlay coupled-stability finding (S9).
+    note: "outburst self-vent finding folded into the broader burst coupled-stability item."
+  - id: step-2d-housekeeping-DONE
 
 # ============================================================
 # REMAINING (NEXT SESSION — START HERE)

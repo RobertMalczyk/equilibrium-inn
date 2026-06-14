@@ -318,7 +318,12 @@ reviews artifacts before the next stage is authorized.
 | **G3 build-out** | Scope sign-off for CLI polish / viewer extension / public extraction | — | — |
 
 G0 is also a harvest: its NPC-sourced exchanges are exported in the existing scenario
-format and become the missing Wojsław-commands-Halgrim QA corpus.
+format and become the missing Wojsław-commands-Halgrim QA corpus. Implemented as
+`experiments/harvest.py` (M-B 2d): the canonical impulse run's NPC reactions are exported
+as engine-format scenario YAMLs that capture the reactor's pre-tick context (global_state
++ relations toward the source), prioritising NPC-to-NPC negative exchanges; each is
+VERIFIED to reproduce the observed action under the inn's shipped loader before it is
+written (a manifest records the run). Output: `experiments/out/g0/harvest/`.
 
 **Milestones:** M-A instrument (compiler, presence, transducer+provenance, economy, inn
 loop, session log, society trace, metrics skeleton) + the G0 experiment and report.
@@ -387,3 +392,27 @@ Following the G1 semantic audit (`experiments/out/g0/G1_audit.md`):
 
 G1 semantics are signed off on this basis; M-B implements the two-profile split + the
 semantic-profile sweep + the engine findings.
+
+### M-B rulings (decided 2026-06-14, by the user, in writing)
+
+M-B consumed the engine's Social Event Mapper Pack + M20.1 burst calibration (pin
+`0176dbd`) and closed the S3 gap. New rulings (see `registers/m_b.yaml`):
+
+- **Burst overlay: OFF.** The engine's calibrated burst overlay (exposed as the
+  `burst_overlay` toggle) cannot be bounded in the coupled inn — it is single-persona
+  calibration and a 7-way room re-provokes continuously into runaway. The inn ships
+  `burst_overlay: false`, bounded by its own dampers (vent −0.5 — the load-bearing one;
+  cooldown 15; `reactive_window_ticks=1`). The "vent only for unrelated triggers" ideal
+  (DEC-3's engine finding) needs the overlay's displaced discharge, so it is deferred to
+  an engine coupled-stability fix (§9). Closes the open question in DEC-3/4.
+- **DEC-6 (default profile): `game_semantic_profile`** is the loaded default (DEC-1 flip
+  enacted; `g0_stability_profile` selected explicitly for G0 stability runs).
+- **DEC-7 (operating scale): 0.45.** The semantic sweep settles at scale ≤0.5 (7–8
+  incidents, depth 2–3) with a sharp cliff at 0.55; 0.45 = corridor with margin. Resolves
+  open decision #3's magnitude; intensity shape stays linear×attenuation as config.
+- **DEC-8 (scarcity gradient): flat, accepted as a finding.** Under the semantic profile
+  the thin/normal/rich incident counts are ~equal (the frustration recovery flattens the
+  gradient). Not tuned; revisit only if a thin>rich gradient is wanted.
+- **incident_def: outburst-only** (the S3 events fire and affect state but are sub-insult;
+  counting them would inflate the corridor). Resolves the corridor target (open decision #2)
+  for the semantic profile at ~8 incidents/impulse.
