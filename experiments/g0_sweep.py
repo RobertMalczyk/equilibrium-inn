@@ -33,7 +33,8 @@ def make_loader(cfg, recovery: bool):
     """Believable timescale + inn engine_overrides; recovery axis toggles the
     engine's default idle-recovery pull back on."""
     return make_persona_loader(cfg.engine_overrides,
-                               extra=_DEFAULT_RECOVERY if recovery else None)
+                               extra=_DEFAULT_RECOVERY if recovery else None,
+                               burst=cfg.burst_overlay)
 
 
 def upper_clamp_dwell(records, states=("anger", "stress", "frustration")) -> dict:

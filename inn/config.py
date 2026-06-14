@@ -150,6 +150,7 @@ class InnConfig:
     provoking_event_types: tuple[str, ...]
     g0: dict
     engine_overrides: dict
+    burst_overlay: bool
     profiles: dict[str, ProfileSpec]
     default_profile: str | None
     yaml_sha256: str
@@ -198,7 +199,8 @@ def load_inn_config(path: str | Path) -> InnConfig:
     _check_keys(doc, {"meta", "cast", "event_sources", "rooms", "schedules",
                       "meals", "activities", "transducer", "witnessing",
                       "world", "world_states", "contention", "inbox_policy",
-                      "probes", "g0", "engine_overrides", "profiles"}, "inn.yaml")
+                      "probes", "g0", "engine_overrides", "profiles",
+                      "burst_overlay"}, "inn.yaml")
 
     meta = doc["meta"]
     if meta["engine_commit"] != PINNED_COMMIT:
@@ -382,6 +384,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
         provoking_event_types=provoking,
         g0=doc["g0"],
         engine_overrides=dict(doc.get("engine_overrides", {})),
+        burst_overlay=bool(doc.get("burst_overlay", False)),
         profiles=profiles,
         default_profile=default_profile,
         yaml_sha256=hashlib.sha256(raw_bytes).hexdigest(),

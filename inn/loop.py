@@ -25,8 +25,8 @@ from inn.engine_surface import (
     PersonaRuntime,
     RawEvent,
     believable_day_layout,
+    burst_overrides,
     init_runtime,
-    load_eval_persona_timescale,
     load_persona,
     tick,
     timescale_overrides,
@@ -53,14 +53,20 @@ def _deep_merge(a: dict, b: dict) -> dict:
 
 
 def make_persona_loader(engine_overrides: dict,
-                        extra: dict | None = None) -> Callable[[str], object]:
-    """Believable-timescale loader with inn.yaml engine_overrides stacked on
-    top (and optional sweep-axis extras on top of that)."""
-    ov = _deep_merge(timescale_overrides(), engine_overrides)
+                        extra: dict | None = None,
+                        burst: bool = False) -> Callable[[str], object]:
+    """Believable-timescale loader. When ``burst`` is true the engine's
+    CALIBRATED burst overlay (M20.1 ``burst_overrides`` — latch/escalation/
+    extinction/displacement) is stacked first; the inn keeps the overlay OFF by
+    default (it cannot be bounded in the coupled room — see inn.yaml
+    burst_overlay) and bounds reactions with its own engine_overrides instead.
+    Stacking order: timescale -> [burst] -> inn engine_overrides -> sweep extras."""
+    ov = timescale_overrides()
+    if burst:
+        ov = _deep_merge(ov, burst_overrides())
+    ov = _deep_merge(ov, engine_overrides)
     if extra:
         ov = _deep_merge(ov, extra)
-    if not engine_overrides and not extra:
-        return load_eval_persona_timescale
 
     def loader(pid: str):
         return load_persona(ENGINE_ROOT / "data" / "personas" / f"{pid}.yaml",
@@ -78,6 +84,10 @@ class InnLoop:
                  extra_events: list[tuple[int, str, RawEvent]] | None = None,
                  profile: str | None = None):
         self.cfg = cfg
+        # DEC-6: the inn SHIPS as its default profile (game_semantic_profile).
+        # profile=None resolves to cfg.default_profile; pass an explicit name
+        # (e.g. "g0_stability_profile") to override, e.g. for G0 stability runs.
+        profile = profile if profile is not None else cfg.default_profile
         self.profile = profile
         self.clock = Clock.from_layout(believable_day_layout())
         self.stream = ScheduleStream(cfg, self.clock)
@@ -89,7 +99,7 @@ class InnLoop:
         self.scale = transducer_scale
         self.rng = random.Random(seed)  # reserved for inherited stochastic choices
         loader = persona_loader or make_persona_loader(
-            cfg.resolved_engine_overrides(profile))
+            cfg.resolved_engine_overrides(profile), burst=cfg.burst_overlay)
         self.runtimes: dict[str, PersonaRuntime] = {
             c.id: init_runtime(loader(c.id)) for c in cfg.cast
         }

@@ -24,6 +24,25 @@ def test_profiles_loaded_and_default():
     assert CFG.default_profile == "game_semantic_profile"
 
 
+def test_burst_overlay_off_by_default():
+    """The engine burst overlay is OFF (coupled-stability finding: it cannot be
+    bounded in the coupled room). The inn bounds reactions with its own
+    engine_overrides instead."""
+    assert CFG.burst_overlay is False
+
+
+def test_loop_default_profile_is_semantic():
+    """DEC-6: a loop with no explicit profile ships as the default (semantic)."""
+    from inn.loop import InnLoop
+    from inn.trace import TraceWriter
+    import tempfile
+    from pathlib import Path
+    loop = InnLoop(CFG, seed=7, probe_plan="control",
+                   trace=TraceWriter(Path(tempfile.mkdtemp()) / "t.jsonl.gz"))
+    assert loop.profile == "game_semantic_profile"
+    assert "hearth_idle" not in loop.economy.sources  # semantic disables it
+
+
 def test_stability_profile_is_an_empty_overlay():
     """The frozen profile must reproduce the bare base exactly (so its golden is
     unchanged): no override delta, no disabled activity."""

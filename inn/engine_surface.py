@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1] / "equilibrium-engine"
-PINNED_COMMIT = "0b7df59c06f9f1edfbe144d2c64c1a42c048c76b"  # Social Event Mapper Pack (cold_reply/refusal/complaint)
+PINNED_COMMIT = "0176dbd78ba7b7eaa0cebbbb43392779469547a4"  # M20.1 burst/outburst calibration (calibrated_burst.yaml overlay)
 
 
 def _engine_commit() -> str:
@@ -62,6 +62,7 @@ from engine.runtime import init_runtime  # noqa: E402
 from engine.yaml_io import load_persona  # noqa: E402
 from eval.calibrated import (  # noqa: E402
     believable_day_layout,
+    burst_overrides,
     load_eval_persona_timescale,
     timescale_overrides,
 )
@@ -114,4 +115,5 @@ __all__ = [
     "believable_day_layout",
     "load_eval_persona_timescale",
     "timescale_overrides",
+    "burst_overrides",
 ]

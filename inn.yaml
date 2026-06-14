@@ -2,7 +2,7 @@
 # No behavior-shaping numeric literal may live in code; it lives here.
 meta:
   version: 1
-  engine_commit: "0b7df59c06f9f1edfbe144d2c64c1a42c048c76b"
+  engine_commit: "0176dbd78ba7b7eaa0cebbbb43392779469547a4"
   days: 3
 
 # Cast list order IS the contention tiebreak order (section 5).
@@ -89,49 +89,43 @@ schedules:
 # activity economy is exactly that reactive world). Values are the engine
 # eval's demo values (eval/burst_eval.py BURST_ON/LOOP2_ON), adopted as the
 # inn's v1 enabling layer; calibration ownership stays with the engine.
+# Engine burst overlay toggle (engine 0176dbd M20.1). When true, the loader
+# stacks the engine's CALIBRATED burst overlay (eval.burst_overrides: k_esc,
+# extinction, latch band, theta_displace, displaced-relational discount, Loop-2
+# seek cost — all anchored to the Layer-2 Jury bound + measured single-persona
+# envelope). FINDING (coupled-stability, M-B): the burst overlay CANNOT be
+# bounded in the coupled inn — it is calibrated for ONE persona's rare loaded
+# episode, but a 7-way room re-provokes continuously and the latch escalation +
+# slow extinction (0.0435) amplify it to runaway (1000+ incidents) at every
+# tweak. The inn therefore runs with the overlay OFF and bounds reactions with
+# its own proven dampers below. The displaced-discharge "vent only for unrelated
+# triggers" model lives in the overlay, so it is DEFERRED to an engine
+# coupled-stability fix (the cichy_multi_060 topology gap); until then the inn's
+# vent is a blanket discharge. Flip true to consume the overlay once that lands.
+burst_overlay: false
+
 engine_overrides:
-  # Reactions are rate-limited: an outburst costs ~30 min of game time before
-  # the next can fire (default cooldown 2 ticks let pairs ping-pong every
-  # 4 minutes indefinitely - iteration C finding).
+  # Reactions are rate-limited: an outburst costs ~30 min of game time before the
+  # next can fire (engine default cooldown 2 let pairs ping-pong indefinitely).
   action_params:
-    # An outburst VENTS: it discharges the anger it expresses (default books
-    # only resentment on the target, leaving anger pinned and re-firing -
-    # iteration D finding). Cooldowns gate proactive starts only; reactive
-    # rate-limiting comes from the discharge + the 1-tick reactive window.
     outburst:
       cooldown: 15
+      # An outburst VENTS the anger it expresses (engine default -0.3 is too weak
+      # for the coupled room -> runaway; -0.5 is the load-bearing damper, the G0
+      # finding). Blanket discharge: with the overlay OFF there is no displacement
+      # machinery, so every outburst is a direct-provoker reaction. The
+      # "unrelated-only" vent is deferred with the overlay (see burst_overlay).
       post_effects:
         global: {anger: -0.50}
         source_relations: {resentment: 0.15}
   thresholds:
-    # latch must catch real fights: anger 0.70 + stress 0.40 is the observed
-    # mid-fight operating point; at 0.80/0.60 the latch never set and the
-    # extinction circuit breaker stayed dormant.
-    burst_enter.anger: 0.70
-    burst_enter.stress: 0.40
-    burst_exit: 0.30
-    burst_confirm_ticks: 2
-    # A reaction must answer a FRESH provocation (the engine burst eval's own
-    # setting); the wide default window let stale provocations authorize
-    # outbursts for 30+ minutes after the fight went one-sided.
+    # A reaction must answer a FRESH provocation (the engine burst-eval setting);
+    # the wide default window let stale provocations authorize outbursts for 30+
+    # min after a fight went one-sided.
     reactive_window_ticks: 1
-    # 0.55 -> 0.75: displaced snaps only from a truly loaded state; at 0.55
-    # displaced discharge + witness fan-out let a primed-but-unprovoked room
-    # ignite itself (rain riot, register F-step).
-    theta_displace: 0.75
-  # 0.02 -> 0.10: a burst is a self-terminating EPISODE (~spike, a visible
-  # act or two, forced cool-down), not a steady state. Engine's own
-  # extinction arc demo uses 0.15.
-  burst_extinction: {anger: 0.15, stress: 0.15}
-  # Idle recovery OFF is part of the canonical G0 operating point: lingering
-  # arousal carries the day-1 grudge into small, shallow (depth <= 3)
-  # pre-lunch flares on days 2-3 - the corridor texture. AUDIT ITEM for G1:
-  # this disables the engine's D10/D11 idle-recovery fix inn-wide; the
-  # alternative is recovery on + corridor revised to ~2 incidents.
+  # Idle recovery OFF is the base; game_semantic_profile overlays a partial
+  # frustration-only recovery (see `profiles`). g0_stability_profile keeps it off.
   idle_recovery: {stress: 0.0, anger: 0.0}
-  derived_weights:
-    urge_boredom:
-      stress: 0.60
 
 # Profiles (CLAUDE.md DEC-1): two instrument characters over ONE inn.yaml. Each
 # overlays an engine_overrides delta (deep-merged onto the base above) plus a set
@@ -219,10 +213,11 @@ transducer:
   # floor_policy roots_only (G0 finding F2): the floor applies only to
   # reactions provoked by EXTERNAL events (probes/player); reaction-to-
   # reaction hops carry pure scale*potential, so cascades decay geometrically.
-  # scale 0.65: the canonical stable point found at G0 iteration E - cascade
-  # hops decay (a flare is the probe's direct ignitions, depth ~2, then the
-  # room settles); >= 0.75 re-enters the chaotic band.
-  intensity: {shape: linear, scale: 0.5, floor_policy: roots_only}
+  # scale 0.45 (DEC-7): operating point for the semantic profile under engine
+  # 0176dbd (burst overlay OFF). The semantic G0 sweep settles at scale <= 0.5
+  # (7-8 incidents, depth 2-3) with a sharp cliff at 0.55 (37+ incidents); 0.45
+  # gives the corridor count with a margin below the cliff.
+  intensity: {shape: linear, scale: 0.45, floor_policy: roots_only}
   rows:
     # witness attenuation 0.5 -> 0.15 (G0 finding F3): witnessing primes,
     # it does not conscript. 6 witnesses x 0.15 keeps per-hop fan-out < 1.
@@ -266,12 +261,15 @@ witnessing:
 world:
   # Perceivable events that, when delivered to a persona, become that persona's
   # current provocation source for reactive TARGET INFERENCE (loop._last_prov ->
-  # transducer target = provoking event's source, CLAUDE.md S2). Closing the S3
-  # social gap means a reaction provoked by a refusal/complaint/cold_reply must
-  # be attributed back to its source, so these join insult+command. Every entry
-  # must be in the mapper's perceivable vocabulary (config load rejects others);
-  # neutral/unknown events are NOT listed, so they never become provoking by
-  # accident. Omitting this block falls back to the safe default [insult,command].
+  # transducer target = provoking event's source, CLAUDE.md S2). The S3 social
+  # events join insult+command so a reaction provoked by a refusal/complaint/
+  # cold_reply is attributed to its source. Every entry must be perceivable
+  # (config load rejects others); neutral/unknown events are NOT listed, so they
+  # never provoke by accident. Omitting the block falls back to [insult,command].
+  # (An AFFECT-vs-PROVOKE split — dropping the mild events from this list — was
+  # tested for coupled-stability and found UNNECESSARY: once the outburst vent
+  # bounds the loop, narrowing the provoking set makes no difference. See the
+  # burst_overlay finding below.)
   provoking_event_types: [insult, command, cold_reply, refusal, complaint]
 
 # Standalone world physics (section 4.2). Trace-only observables in M-A:
