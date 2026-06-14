@@ -85,15 +85,47 @@ done:
         Candidate SEPARATE tuning: lower/zero the frustration recovery to expose
         scarcity, or accept a flat gradient. NOT tuned now (per user: causality
         before incident-count optimisation).
-    open_decisions_for_audit:
-      - "DEC-6 default-flip: flip loop default to game_semantic_profile + golden
-         re-baseline? (DEC-1 pre-authorised; numbers support it at scale <=0.5.)"
-      - "DEC-7 operating scale for semantic: keep 0.5 (in-corridor but cliff-edge)
-         or pull back to 0.45 for margin?"
-      - "DEC-8 scarcity gradient: accept flat (finding) or revisit frustration
-         recovery rate as separate tuning?"
-      - "incident_def scope: do refusal/complaint/cold_reply count as incidents?
-         (current def = outburst only; lean NO — sub-insult. Record ruling.)"
+    audit_rulings_2026_06_14:
+      DEC-6: "FLIP to game_semantic_profile default + re-baseline golden — APPROVED,
+              but HELD: do it ONCE, after the outburst mechanism lands (see BLOCKER)."
+      DEC-7: "Operate semantic at transducer scale 0.45 (margin below the 0.55
+              cliff) — APPROVED, HELD (corridor will move with the new outburst)."
+      DEC-8: "Flat scarcity gradient ACCEPTED as a finding; do NOT tune frustration
+              recovery now. Revisit as a separate pass if a thin>rich gradient is wanted."
+      incident_def: "DEFERRED into the outburst-mechanism pull (user redirected the
+              question there). Resolve when burst overlay lands."
+  - id: BLOCKER-outburst-mechanism
+    what: >
+      User: 'the outburst is the vent only for unrelated triggers.' The inn's
+      hand-authored vent is a BLANKET unconditional post_effect
+      (engine_overrides outburst.post_effects.global.anger:-0.50) — it vents
+      direct-provoker outbursts too, which is semantically WRONG under that
+      framing. The engine already distinguishes provoker vs displaced (sim.py
+      target policy: the respect-brake damps venting onto a source that did NOT
+      cause the anger). The engine's CALIBRATED version of this is the
+      m20.1-outburst-calibration branch (HEAD 0176dbd): calibrated_burst.yaml
+      (latch 0.80/0.60, extinction 0.0435/0.0276, theta_displace 0.60, k_esc 1.1
+      — all anchored to the Layer-2 Jury bound + measured envelope, none by hand)
+      + a load_eval_persona_timescale(persona_id, burst=False) opt-in flag.
+    decision_2026_06_14:
+      pull_path: >
+        WAIT for m20.1 to MERGE TO MAIN first (user ruling). The branch is
+        unmerged WIP with an author-flagged regression (cichy_multi_060: a
+        relentless SAME-source insult cluster never arms the latch -> k_esc
+        escalation over-produces outbursts; a topology gap = an ENGINE design
+        decision, the user's, not the inn's). Do NOT pin the inn to a moving WIP
+        branch. The engine work happens in the engine repo (HARD RULE: inn never
+        writes the engine); the inn consumes it via a deliberate pin bump after merge.
+      then: >
+        Once m20.1 is on engine main: bump pin to that commit; switch the inn
+        loader to burst=True (make_persona_loader / engine_surface); DROP the
+        inn's hand-authored burst engine_overrides (the -0.50 vent, latch
+        0.70/0.40, extinction 0.10, theta_displace 0.75, reactive_window — now
+        engine-owned, audit items retired); re-run the semantic G0 sweep to
+        re-characterise the corridor under the new outburst mechanism; THEN
+        apply DEC-6/7 (flip + scale 0.45 + single golden re-baseline) and settle
+        incident_def. This RE-OPENS 2c; everything 2c is on hold until then.
+    status: "BLOCKED on engine m20.1 -> main merge. Inn side is a no-op until then."
   - id: step-2d-housekeeping-pending
 
 # ============================================================
