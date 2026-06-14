@@ -167,6 +167,19 @@ the canonical pride input — while `complaint`/`cold_reply` are direct-only in 
 Floors are provisional, tuned by the M-B semantic-profile G0 sweep. The flagship spec
 extension that this gap was waiting on is the engine change that landed these events.
 
+**Outburst/burst mechanism — engine-owned, but OFF in the coupled inn (M-B finding).**
+Engine `0176dbd` (M20.1) ships a calibrated burst overlay (latch/escalation/extinction/
+displacement). The inn exposes it as a config toggle (`burst_overlay`, default **false**)
+but **runs with it OFF**: empirically the overlay cannot be bounded in the coupled room —
+it is anchored to a single persona's rare loaded episode, while a 7-persona room
+re-provokes continuously and the escalation + slow extinction amplify to runaway (1000+
+incidents) at every tweak. The inn bounds reactions with its own dampers instead (outburst
+vent −0.5 — the load-bearing damper; cooldown 15; `reactive_window_ticks 1`). The vent is
+therefore a **blanket** discharge; the "vent only for unrelated triggers" model needs the
+overlay's displaced discharge, so it is **deferred to an engine coupled-stability fix**
+(the `cichy_multi_060` latch-topology gap). Flip `burst_overlay: true` to consume the
+overlay once that lands.
+
 **Second-order (attribution) gap also closed.** A first-order fix (the event affects
 state) is not enough: the world loop must also record the new event as the recipient's
 current *provocation* so a later reactive action is attributed back to the right source
@@ -331,7 +344,11 @@ Event Mapper Pack — see §4.2.)
 (DONE — landed as the engine's Social Event Mapper Pack `0b7df59` and wired in M-B, §4.2);
 `ActionSelection.target` as an explicit
 trace field (touches the frozen trace shape — goes through spec + golden regeneration);
-world states as engine citizens (GlobalState vocabulary generalization); incident
+world states as engine citizens (GlobalState vocabulary generalization); ENGINE
+COUPLED-STABILITY FIX for the burst overlay (the `cichy_multi_060` latch-topology gap:
+the latch keys on an anger↔stress saturation that relentless multi-source provocation
+doesn't reach, so the self-extinguishing episode never arms in a coupled room — until
+fixed, the inn keeps `burst_overlay: false` and a blanket vent); incident
 choreography (storm-off room changes); more rooms / economy beyond the pot; LLM
 expression and free-text perception seams; formal coupled-system stability analysis
 (linearizations + sparse coupling matrix + spectral radius — revisit if G0's empirical

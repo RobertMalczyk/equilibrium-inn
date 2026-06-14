@@ -125,7 +125,38 @@ done:
         re-characterise the corridor under the new outburst mechanism; THEN
         apply DEC-6/7 (flip + scale 0.45 + single golden re-baseline) and settle
         incident_def. This RE-OPENS 2c; everything 2c is on hold until then.
-    status: "BLOCKED on engine m20.1 -> main merge. Inn side is a no-op until then."
+    status: "RESOLVED 2026-06-14 — user directed 'the pull is essential', pulled
+      it (pin 0176dbd) and replanned the inn around it. See RESOLUTION below."
+  - id: RESOLUTION-outburst-pull
+    what: >
+      Pulled the engine burst-overlay pin (0176dbd) and made it a config toggle
+      (burst_overlay). EMPIRICAL FINDING: the calibrated burst overlay CANNOT be
+      bounded in the coupled inn (single-persona calibration; a 7-way room
+      re-provokes continuously and k_esc 1.1 + slow extinction 0.0435 amplify to
+      1000+ incidents at every tweak swept: extinction, k_esc, latch band, vent).
+      The -0.5 outburst vent is the load-bearing damper (-0.3 -> runaway). The
+      affect-vs-provoke split (narrow provoking_event_types) proved UNNECESSARY
+      once the vent bounds the loop -> reverted (2a' attribution + tests kept).
+    decision: >
+      Inn ships burst_overlay OFF on the new pin (kept for mapper/S3 events),
+      bounded by its own dampers (vent -0.5, cooldown 15, reactive_window 1).
+      The "vent only for unrelated triggers" model needs the overlay's displaced
+      discharge (burst ON) which can't be bounded coupled -> DEFERRED as an
+      ENGINE coupled-stability finding (cichy_multi_060 latch-topology gap, the
+      user's domain). burst_overlay can be flipped true once that lands.
+    final_decisions:
+      DEC-6: "DONE — loop default flipped to game_semantic_profile."
+      DEC-7: "DONE — operating transducer scale 0.45 (sweep: <=0.5 settles 7-8,
+              cliff at 0.55)."
+      DEC-8: "DONE — flat scarcity gradient kept as a finding (thin=normal=rich)."
+      incident_def: "KEPT outburst-only (the S3 events fire but are sub-insult;
+              counting them would inflate the corridor)."
+    result: >
+      Semantic sweep (burst off): scale <=0.5 settles 7-8 incidents depth 2-3,
+      cliff at 0.55, 0 gaps, control/step 0. Shipped canonical impulse (semantic,
+      scale 0.45) = 8 incidents, depth 3, 6 cascades, clamp 0.0, 0 gaps, target
+      attribution 14/14. Golden re-baselined to 3499...70. 65 tests green.
+      Commit d91d105.
   - id: step-2d-housekeeping-pending
 
 # ============================================================
