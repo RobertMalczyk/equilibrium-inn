@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from inn import metrics as M
 from inn.config import load_inn_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,41 +65,6 @@ def _plots(results: list[dict]) -> list[str]:
     plt.close(fig)
     made.append(p.name)
     return made
-
-
-def harvest_exchanges(max_scenarios: int = 5) -> list[Path]:
-    """Export NPC-sourced insult exchanges from the canonical impulse run as
-    engine-format scenario YAMLs (G0 doubles as the QA-corpus harvest)."""
-    import yaml as _yaml
-
-    trace_path = OUT / "s1.0_ron_normal" / "impulse" / "trace.jsonl.gz"
-    if not trace_path.is_file():
-        return []
-    out_dir = OUT / "harvest"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written = []
-    count = 0
-    for rec in M.read_trace(trace_path):
-        for tr in rec["transductions"]:
-            if tr["role"] != "target" or tr["actor"] in ("marta", "player"):
-                continue
-            if count >= max_scenarios:
-                return written
-            count += 1
-            scenario = {
-                "id": f"inn_harvest_{count:02d}_{tr['actor']}_to_{tr['recipient']}",
-                "persona": tr["recipient"],
-                "initial_overrides": {},
-                "events": [{
-                    "type": tr["as"], "t": 0, "source": tr["actor"],
-                    "intensity": round(tr["intensity"], 3),
-                    "context": {"public": True},
-                }],
-            }
-            p = out_dir / f"{scenario['id']}.yaml"
-            p.write_text(_yaml.safe_dump(scenario, sort_keys=False), encoding="utf-8")
-            written.append(p)
-    return written
 
 
 def _summary_findings(impulse: list[dict], control: list[dict],
@@ -203,7 +167,8 @@ def main() -> Path:
     formal = (json.loads(formal_path.read_text(encoding="utf-8"))
               if formal_path.is_file() else None)
     plots = _plots(results)
-    harvested = harvest_exchanges()
+    from experiments.harvest import harvest  # formalized QA-corpus harvest
+    harvested = harvest()
 
     lines = [
         "# G0 stability report",
