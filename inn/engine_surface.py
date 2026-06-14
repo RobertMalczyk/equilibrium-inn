@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1] / "equilibrium-engine"
-PINNED_COMMIT = "3dcf4a3afbe0af42968d085436a77a0fb92af1d1"  # burst & saturation main
+PINNED_COMMIT = "0176dbd78ba7b7eaa0cebbbb43392779469547a4"  # M20.1 burst/outburst calibration (calibrated_burst.yaml overlay)
 
 
 def _engine_commit() -> str:
@@ -62,6 +62,7 @@ from engine.runtime import init_runtime  # noqa: E402
 from engine.yaml_io import load_persona  # noqa: E402
 from eval.calibrated import (  # noqa: E402
     believable_day_layout,
+    burst_overrides,
     load_eval_persona_timescale,
     timescale_overrides,
 )
@@ -70,6 +71,9 @@ from eval.calibrated import (  # noqa: E402
 # any other type are invisible to personas; the transducer may only emit these.
 PERCEIVABLE_EVENTS: tuple[str, ...] = (
     "food_given", "insult", "help", "command", "nightfall", "weather", "activity",
+    # Social Event Mapper Pack (engine 0b7df59): three negative-but-not-insult
+    # relational events, each its own channel. These let the S3 declared gap close.
+    "cold_reply", "refusal", "complaint",
 )
 
 # The complete set of action ids the engine's action selector can place in
@@ -111,4 +115,5 @@ __all__ = [
     "believable_day_layout",
     "load_eval_persona_timescale",
     "timescale_overrides",
+    "burst_overrides",
 ]

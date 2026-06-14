@@ -39,7 +39,8 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                 transducer_scale: float | None = None,
                 richness_mults: dict | None = None,
                 persona_loader=None,
-                n_ticks: int | None = None) -> dict:
+                n_ticks: int | None = None,
+                profile: str | None = None) -> dict:
     """Run one session; write session.json + trace.jsonl.gz; return the header
     (including the resulting trace sha256)."""
     out_dir = Path(out_dir)
@@ -52,7 +53,8 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
     loop = InnLoop(cfg, seed=seed, probe_plan=probe_plan, trace=writer,
                    transducer_scale=transducer_scale,
                    richness_mults=richness_mults,
-                   persona_loader=persona_loader)
+                   persona_loader=persona_loader,
+                   profile=profile)
     loop.run(n_ticks)
     sha = writer.close()
 
@@ -65,6 +67,7 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
         "n_ticks": n_ticks,
         "transducer_scale": transducer_scale,
         "richness_mults": richness_mults,
+        "profile": profile,
         "layout": {k: layout[k] for k in ("dt", "day_ticks", "waking_ticks")},
         "injected_events": [],  # player verbs append here in the CLI milestone
         "trace_sha256": sha,
@@ -86,4 +89,5 @@ def replay(session_path: str | Path, inn_yaml: str | Path,
     return run_session(cfg, header["probe_plan"], out_dir, seed=header["seed"],
                        transducer_scale=header["transducer_scale"],
                        richness_mults=header["richness_mults"],
-                       n_ticks=header["n_ticks"])
+                       n_ticks=header["n_ticks"],
+                       profile=header.get("profile"))

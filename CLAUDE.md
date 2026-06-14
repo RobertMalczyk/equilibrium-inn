@@ -17,6 +17,46 @@ below, stop and file it as a finding instead of hacking around it.
 
 ---
 
+## 0. HARD RULES (non-negotiable; violating one is a stop-the-line event)
+
+These are absolute. They are not trade-offs to be balanced against convenience, and
+they outrank every other instruction in this file or any ad-hoc request. If a task
+appears to require breaking one, STOP and surface it as a finding — do not proceed.
+
+1. **The engine repo is READ-ONLY. It is strictly forbidden to modify, write, create,
+   delete, stage, commit, push, or otherwise mutate ANYTHING in the
+   `equilibrium-engine/` checkout — code, config, tests, calibration, goldens, git
+   state, or working tree.** The inn never edits the engine to make the inn work. The
+   engine is layer 0, consumed read-only at a pinned commit through its public surface
+   only (§3, §4). This includes: no `git` write commands against the engine clone
+   (`commit`, `push`, `checkout -b`, `merge`, `rebase`, `add`, `restore`, `stash`, …);
+   no editing engine source/YAML; no regenerating engine goldens; no "quick patch" to
+   an engine file even if it would fix an inn problem. The ONLY permitted engine git
+   operations are read/pin-management ones the inn needs: `fetch`, `rev-parse`,
+   `log`/`show`/`diff`/`status` (read), and `checkout <pinned-commit>` solely to put
+   the clone AT the pin the inn already declares. Bumping the pin is an inn-side change
+   (`PINNED_COMMIT` + `meta.engine_commit`), never an engine-side one.
+
+2. **Any need that cannot be met through the engine's public surface is filed as an
+   engine FINDING, never worked around by reaching into engine internals or vendoring
+   a modified copy.** Engine changes are made by the user (or in a separate, explicitly
+   engine-scoped session) in the engine repo itself — then the inn consumes the result
+   by a deliberate pin bump. (Example done right this milestone: the S3 social-mapper
+   events were added to the engine by the user; the inn only bumped the pin and wired
+   the transducer — §4.2.)
+
+3. **No behavior-shaping numeric literal lives in inn code** — it lives in `inn.yaml`
+   (§4.1). 4. **Analysis reads only the society trace**, never live engine objects
+   (§4.2). 5. **No LLM anywhere in the simulation loop** (§6). 6. **Work proceeds
+   through the gates; the user audits at every AUDIT checkpoint** before the next stage
+   is authorized (§8).
+
+Rules 3–6 restate frozen decisions elaborated below; rules 1–2 are the engine-isolation
+boundary and are the hardest of the hard. When in doubt about whether an action touches
+the engine repo, treat it as forbidden and ask.
+
+---
+
 ## 1. Purpose — what this platform is for
 
 This is an **instrument, not a game and not a showcase**. Its job is to run a small
@@ -114,14 +154,41 @@ and the day precipitates out of schedule × catalog × cast.
 |---|---|---|---|
 | outburst | `insult`, source = actor | full intensity | attenuated, `public: true` |
 | cooperate, positive_response | `help`, source = actor | full | none (MVP) |
+| refuse | `refusal`, source = actor | full | attenuated, `public: true` |
+| complain | `complaint`, source = actor | full | none (MVP) |
+| cold_response | `cold_reply`, source = actor | full | none (MVP) |
 | seek_stimulus, rest, activities | none (MVP) | — | — |
-| refuse, cold_response, complain | **none — DECLARED GAP** | — | — |
 
-The gap row means the authority loop closes one way only (Wojsław cannot *feel* being
-refused). This ships stated, surfaced in the chronicle, and is the flagship candidate
-for the first spec extension — to be designed together with the in-flight
-pride→insult-anger work, since "my command was publicly refused" is the canonical pride
-input. Do not quietly invent a `refused` event type to fix it here.
+**S3 gap CLOSED (engine `0b7df59`, Social Event Mapper Pack).** The authority loop now
+closes both ways: the three negative-but-not-insult social actions map to their own
+relational events (`refusal`/`complaint`/`cold_reply`), each its own engine channel
+(NOT aliased to `insult`). `refuse` is witnessed — "my request was publicly refused" is
+the canonical pride input — while `complaint`/`cold_reply` are direct-only in the MVP.
+Floors are provisional, tuned by the M-B semantic-profile G0 sweep. The flagship spec
+extension that this gap was waiting on is the engine change that landed these events.
+
+**Outburst/burst mechanism — engine-owned, but OFF in the coupled inn (M-B finding).**
+Engine `0176dbd` (M20.1) ships a calibrated burst overlay (latch/escalation/extinction/
+displacement). The inn exposes it as a config toggle (`burst_overlay`, default **false**)
+but **runs with it OFF**: empirically the overlay cannot be bounded in the coupled room —
+it is anchored to a single persona's rare loaded episode, while a 7-persona room
+re-provokes continuously and the escalation + slow extinction amplify to runaway (1000+
+incidents) at every tweak. The inn bounds reactions with its own dampers instead (outburst
+vent −0.5 — the load-bearing damper; cooldown 15; `reactive_window_ticks 1`). The vent is
+therefore a **blanket** discharge; the "vent only for unrelated triggers" model needs the
+overlay's displaced discharge, so it is **deferred to an engine coupled-stability fix**
+(the `cichy_multi_060` latch-topology gap). Flip `burst_overlay: true` to consume the
+overlay once that lands.
+
+**Second-order (attribution) gap also closed.** A first-order fix (the event affects
+state) is not enough: the world loop must also record the new event as the recipient's
+current *provocation* so a later reactive action is attributed back to the right source
+(`loop._last_prov` → transducer target inference, §2). The provoking-event set is now
+config-driven — `world.provoking_event_types` in `inn.yaml`
+(`[insult, command, cold_reply, refusal, complaint]`); omitting the block falls back to
+the historical safe default `[insult, command]`, and every entry must be perceivable
+(neutral/unknown names fail config load, so nothing becomes provoking by accident).
+Player-verb routing through this path remains separate and is not yet implemented (M-C).
 
 ### 4.3 The tick loop — frozen semantics
 
@@ -268,14 +335,20 @@ open questions) in the project's usual style; update it at every AUDIT.
 
 **Frozen (change requires the user, in writing, here):** one-tick social latency; the
 engine is consumed at a pinned tag through its public surface only; no LLM in the loop;
-the transducer's declared gap ships as a gap; all behavior-shaping numbers live in
-`inn.yaml`; analysis reads only the trace; deterministic contention tiebreak; nights
-simulated honestly.
+all behavior-shaping numbers live in `inn.yaml`; analysis reads only the trace;
+deterministic contention tiebreak; nights simulated honestly. (The transducer's S3
+declared gap was a frozen decision through G1; it is now CLOSED by the engine's Social
+Event Mapper Pack — see §4.2.)
 
-**Deferred, named, not in this build:** symmetric social perception event types (spec
-amendment, co-designed with pride→insult-anger); `ActionSelection.target` as an explicit
+**Deferred, named, not in this build:** ~~symmetric social perception event types~~
+(DONE — landed as the engine's Social Event Mapper Pack `0b7df59` and wired in M-B, §4.2);
+`ActionSelection.target` as an explicit
 trace field (touches the frozen trace shape — goes through spec + golden regeneration);
-world states as engine citizens (GlobalState vocabulary generalization); incident
+world states as engine citizens (GlobalState vocabulary generalization); ENGINE
+COUPLED-STABILITY FIX for the burst overlay (the `cichy_multi_060` latch-topology gap:
+the latch keys on an anger↔stress saturation that relentless multi-source provocation
+doesn't reach, so the self-extinguishing episode never arms in a coupled room — until
+fixed, the inn keeps `burst_overlay: false` and a blanket vent); incident
 choreography (storm-off room changes); more rooms / economy beyond the pot; LLM
 expression and free-text perception seams; formal coupled-system stability analysis
 (linearizations + sparse coupling matrix + spectral radius — revisit if G0's empirical

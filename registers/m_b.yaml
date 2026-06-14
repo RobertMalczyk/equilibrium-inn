@@ -1,0 +1,181 @@
+milestone: M-B (G1 follow-through + S3 gap closure + two-profile split)
+state: IN PROGRESS. PR #1 (G1 audit) merged to main. Engine pin bumped to the
+  Social Event Mapper Pack (0b7df59). S3 declared gap CLOSED (step 2a). Two-
+  profile split + fresh semantic-profile G0 sweep (steps 2b/2c) NOT yet done.
+  41 tests green. Control golden UNCHANGED (control has no probes).
+updated: 2026-06-13
+engine_commit: 0b7df59c06f9f1edfbe144d2c64c1a42c048c76b
+
+# ============================================================
+# DONE THIS SESSION
+# ============================================================
+done:
+  - id: merge-pr1
+    what: Merged PR #1 (G1 audit) into main (commit 39dc2ab). Brings the
+      action-coverage gate (ENGINE_ACTIONS), phantom hostile_action removal,
+      and contract tests onto main. Verified nothing in PR #1 needed redoing
+      against the mapper pack; only the "S3 gap KEPT" ruling is superseded.
+  - id: step-1-pin-bump
+    what: Bumped engine pin 3dcf4a3 -> 0b7df59 in engine_surface.py +
+      inn.yaml meta.engine_commit; added cold_reply/refusal/complaint to
+      PERCEIVABLE_EVENTS. Behavior-neutral (golden unchanged). Commit c42a618.
+  - id: step-2a-close-gap
+    what: Moved refuse/cold_response/complain out of declared_gaps into real
+      transducer rows. Commit 22c6a4e.
+    rows:
+      refuse:        {as: refusal,   floor: 0.20, witnessed: "public, attenuation 0.15"}
+      complain:      {as: complaint, floor: 0.15, witnessed: "no (direct-only, MVP)"}
+      cold_response: {as: cold_reply, floor: 0.10, witnessed: "no (direct-only, MVP)"}
+    decision: "DEC-S3-rows = refusal witnessed, complaint/cold_reply direct-only
+      (user audit 2026-06-13). Floors PROVISIONAL, to be tuned by the 2c sweep."
+    datapoint: "Canonical impulse (scale 0.5, recovery off, normal) under the
+      closed gap = 11 incidents (outburst-only def), 0.0 clamp dwell, 0 gaps.
+      10 -> 11: the two-way loop is mildly escalating but stays damped, no
+      saturation. Full recharacterization is step 2c."
+  - id: step-2a2-attribution
+    what: >
+      SECOND-ORDER (attribution) gap closed. The world loop only recorded
+      insult/command as provocations, so a reaction to a refusal/complaint/
+      cold_reply could be mis-attributed (target inference uses the recorded
+      provocation source). Made the provoking-event set config-driven:
+      world.provoking_event_types in inn.yaml = [insult, command, cold_reply,
+      refusal, complaint]; loop.py reads cfg.provoking_event_types (module
+      DEFAULT_PROVOKING_TYPES kept only as the absent-block fallback). Every
+      entry must be perceivable (config load rejects unknowns); neutral events
+      are not listed so nothing provokes by accident.
+    tests: >
+      tests/test_provocation.py (10): _last_prov set from each of cold_reply/
+      refusal/complaint, preserved for insult/command, NOT overwritten by a
+      non-provoking `help`; reaction-target inference targets the source for
+      all three. tests/test_config.py (+3): configured set loaded, absent-block
+      default fallback = (insult,command), non-perceivable name fails load.
+    note: "Player-verb routing through this path is still separate / unimplemented (M-C)."
+  - id: step-2b-two-profiles
+    what: >
+      DEC-1 two-profile split implemented (commit e5bea82). One inn.yaml,
+      profiles overlay engine_overrides delta + disable_activities.
+      g0_stability_profile = empty overlay (= frozen base, golden untouched);
+      game_semantic_profile = idle_recovery{frustration:-0.010} + hearth_idle
+      disabled. Selection EXPLICIT; loop default still bare base so all goldens
+      unchanged (63 tests green). Plumbed config->economy->loop->session(+header
+      +replay). tests/test_profiles.py (9).
+  - id: step-2c-semantic-sweep
+    what: >
+      Ran experiments/g0_semantic_sweep.py (scale x richness, recovery fixed by
+      profile, 3 plans). Results in experiments/out/g0_semantic/.
+    findings:
+      corridor: >
+        Semantic profile is IN the 4-10 corridor at the operating scale: scale
+        <= 0.5 -> 5-6 incidents, max depth 2-3, settles, clamp 0.0, across ALL
+        richness. Canonical scale 0.5 = 6 incidents / depth 3. 0 gaps anywhere;
+        control = 0; step = 0. 10/15 impulse cells settle & in-corridor.
+      stability_cliff: >
+        SHARP cliff above 0.5: scale 0.55 normal/rich = 30 (depth 11) saturate
+        (thin still 6); scale 0.6 = 77-129 (depth 56-64) saturate. The stability
+        profile by contrast settled even at 0.6 (15 incidents). FINDING: the
+        hearth was a major high-scale damper; removing it narrows the stable
+        band to scale <= 0.5. Operating at 0.5 sits at the TOP EDGE of that band.
+      scarcity_gradient_absent: >
+        FINDING (counter to Option B's premise): no thin>rich incident gradient
+        at the operating point — thin~=normal~=rich (5-6) for scale <= 0.5. Near
+        the cliff thin is if anything MORE stable (0.55: thin 6 vs normal/rich
+        30). The frustration-only recovery (-0.010) appears to relieve scarcity
+        priming enough to flatten the gradient. So the faithfulness argument that
+        motivated Option B over the hearth is NOT borne out empirically here.
+        Candidate SEPARATE tuning: lower/zero the frustration recovery to expose
+        scarcity, or accept a flat gradient. NOT tuned now (per user: causality
+        before incident-count optimisation).
+    audit_rulings_2026_06_14:
+      DEC-6: "FLIP to game_semantic_profile default + re-baseline golden — APPROVED,
+              but HELD: do it ONCE, after the outburst mechanism lands (see BLOCKER)."
+      DEC-7: "Operate semantic at transducer scale 0.45 (margin below the 0.55
+              cliff) — APPROVED, HELD (corridor will move with the new outburst)."
+      DEC-8: "Flat scarcity gradient ACCEPTED as a finding; do NOT tune frustration
+              recovery now. Revisit as a separate pass if a thin>rich gradient is wanted."
+      incident_def: "DEFERRED into the outburst-mechanism pull (user redirected the
+              question there). Resolve when burst overlay lands."
+  - id: BLOCKER-outburst-mechanism
+    what: >
+      User: 'the outburst is the vent only for unrelated triggers.' The inn's
+      hand-authored vent is a BLANKET unconditional post_effect
+      (engine_overrides outburst.post_effects.global.anger:-0.50) — it vents
+      direct-provoker outbursts too, which is semantically WRONG under that
+      framing. The engine already distinguishes provoker vs displaced (sim.py
+      target policy: the respect-brake damps venting onto a source that did NOT
+      cause the anger). The engine's CALIBRATED version of this is the
+      m20.1-outburst-calibration branch (HEAD 0176dbd): calibrated_burst.yaml
+      (latch 0.80/0.60, extinction 0.0435/0.0276, theta_displace 0.60, k_esc 1.1
+      — all anchored to the Layer-2 Jury bound + measured envelope, none by hand)
+      + a load_eval_persona_timescale(persona_id, burst=False) opt-in flag.
+    decision_2026_06_14:
+      pull_path: >
+        WAIT for m20.1 to MERGE TO MAIN first (user ruling). The branch is
+        unmerged WIP with an author-flagged regression (cichy_multi_060: a
+        relentless SAME-source insult cluster never arms the latch -> k_esc
+        escalation over-produces outbursts; a topology gap = an ENGINE design
+        decision, the user's, not the inn's). Do NOT pin the inn to a moving WIP
+        branch. The engine work happens in the engine repo (HARD RULE: inn never
+        writes the engine); the inn consumes it via a deliberate pin bump after merge.
+      then: >
+        Once m20.1 is on engine main: bump pin to that commit; switch the inn
+        loader to burst=True (make_persona_loader / engine_surface); DROP the
+        inn's hand-authored burst engine_overrides (the -0.50 vent, latch
+        0.70/0.40, extinction 0.10, theta_displace 0.75, reactive_window — now
+        engine-owned, audit items retired); re-run the semantic G0 sweep to
+        re-characterise the corridor under the new outburst mechanism; THEN
+        apply DEC-6/7 (flip + scale 0.45 + single golden re-baseline) and settle
+        incident_def. This RE-OPENS 2c; everything 2c is on hold until then.
+    status: "RESOLVED 2026-06-14 — user directed 'the pull is essential', pulled
+      it (pin 0176dbd) and replanned the inn around it. See RESOLUTION below."
+  - id: RESOLUTION-outburst-pull
+    what: >
+      Pulled the engine burst-overlay pin (0176dbd) and made it a config toggle
+      (burst_overlay). EMPIRICAL FINDING: the calibrated burst overlay CANNOT be
+      bounded in the coupled inn (single-persona calibration; a 7-way room
+      re-provokes continuously and k_esc 1.1 + slow extinction 0.0435 amplify to
+      1000+ incidents at every tweak swept: extinction, k_esc, latch band, vent).
+      The -0.5 outburst vent is the load-bearing damper (-0.3 -> runaway). The
+      affect-vs-provoke split (narrow provoking_event_types) proved UNNECESSARY
+      once the vent bounds the loop -> reverted (2a' attribution + tests kept).
+    decision: >
+      Inn ships burst_overlay OFF on the new pin (kept for mapper/S3 events),
+      bounded by its own dampers (vent -0.5, cooldown 15, reactive_window 1).
+      The "vent only for unrelated triggers" model needs the overlay's displaced
+      discharge (burst ON) which can't be bounded coupled -> DEFERRED as an
+      ENGINE coupled-stability finding (cichy_multi_060 latch-topology gap, the
+      user's domain). burst_overlay can be flipped true once that lands.
+    final_decisions:
+      DEC-6: "DONE — loop default flipped to game_semantic_profile."
+      DEC-7: "DONE — operating transducer scale 0.45 (sweep: <=0.5 settles 7-8,
+              cliff at 0.55)."
+      DEC-8: "DONE — flat scarcity gradient kept as a finding (thin=normal=rich)."
+      incident_def: "KEPT outburst-only (the S3 events fire but are sub-insult;
+              counting them would inflate the corridor)."
+    result: >
+      Semantic sweep (burst off): scale <=0.5 settles 7-8 incidents depth 2-3,
+      cliff at 0.55, 0 gaps, control/step 0. Shipped canonical impulse (semantic,
+      scale 0.45) = 8 incidents, depth 3, 6 cascades, clamp 0.0, 0 gaps, target
+      attribution 14/14. Golden re-baselined to 3499...70. 65 tests green.
+      Commit d91d105.
+  - id: step-2d-housekeeping-pending
+
+# ============================================================
+# REMAINING (NEXT SESSION — START HERE)
+# ============================================================
+remaining:
+  - id: step-2d-housekeeping
+    what: Formalize QA-corpus harvest (experiments/out/g0/harvest/); file the
+      outburst self-vent engine finding; final CLAUDE.md pass.
+
+# ============================================================
+# CARRIED FORWARD (G1 rulings still binding — see registers/m_a.yaml g1_decisions)
+# ============================================================
+g1_rulings_status:
+  DEC-1: "two profiles IMPLEMENTED (2b). Loaded-default FLIP to semantic still
+          pending audit (DEC-6) + golden re-baseline."
+  DEC-2: "semantic = partial frustration-only idle recovery IMPLEMENTED
+          (-0.010 provisional; gradient finding open, DEC-8)."
+  DEC-3: "outburst vent -0.50 BLESSED. In effect."
+  DEC-4: "reactive_window_ticks=1 BLESSED. In effect."
+  DEC-5: "witnessing 0.5 (root) / 0.15 (hop) BLESSED. In effect."
+  S3:    "SUPERSEDED — was KEEP-as-gap; engine 0b7df59 closed it; wired in 2a."

@@ -43,14 +43,32 @@ def test_floor_applies():
     assert target.event.intensity == 0.30  # floor for outburst
 
 
-def test_declared_gap_emits_nothing_but_is_logged():
+def test_s3_negative_social_rows():
+    """S3 gap CLOSED (engine 0b7df59): cold_response/complain emit a direct-only
+    relational event to the provoking source; refuse is additionally witnessed
+    (public). Nothing is logged as a gap any more."""
+    # cold_response -> cold_reply, direct-only (no witnesses)
     r = transduce(CFG, 100, "cichy", _sel("cold_response", 0.6),
                   provoking_source="wojslaw", provoking_id="99:w:command",
                   cohort=COHORT)
-    assert r.addressed == []
-    assert len(r.gaps) == 1
-    assert r.gaps[0].action == "cold_response"
-    assert r.gaps[0].provoked_by == "99:w:command"
+    assert r.gaps == []
+    assert [a.role for a in r.addressed] == ["target"]
+    tgt = r.addressed[0]
+    assert tgt.recipient == "wojslaw" and tgt.event.type == "cold_reply"
+    assert tgt.provenance.provoked_by == "99:w:command"
+    # complain -> complaint, direct-only
+    r = transduce(CFG, 100, "cichy", _sel("complain", 0.6),
+                  provoking_source="wojslaw", provoking_id="99:w:command",
+                  cohort=COHORT)
+    assert [a.role for a in r.addressed] == ["target"]
+    assert r.addressed[0].event.type == "complaint"
+    # refuse -> refusal, witnessed (target + co-located witnesses, public)
+    r = transduce(CFG, 100, "cichy", _sel("refuse", 0.6),
+                  provoking_source="wojslaw", provoking_id="99:w:command",
+                  cohort=COHORT)
+    assert {a.role for a in r.addressed} == {"target", "witness"}
+    assert all(a.event.type == "refusal" for a in r.addressed)
+    assert all(a.event.context.get("public") for a in r.addressed)
 
 
 def test_silent_actions_and_help_has_no_witnesses():
