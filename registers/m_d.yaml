@@ -68,12 +68,30 @@ done:
       experiments/g2_parity.py computes the CPython reference SHA-256 for a fixed
       1000-tick session and emits the static fallback Observatory. Parity is
       closed by running the same session in the cockpit and comparing SHAs.
+  - id: visual-pass
+    what: >
+      Visual asset pack integrated. observatory/assets/ holds the 15-image pack
+      (warm bg, hero, inn scene, parchment panel, behaviour-cycle promo, emblem,
+      lantern divider, NPC token frame, need/affect/sleep/activity/causality
+      icons, fireflies overlay). inn.observatory.load_assets reads them keyed by
+      stem (so .png fills .svg-named slots), web-optimizes raster art
+      (downscale + WebP via Pillow, best-effort) and base64-embeds it — page drops
+      from ~50 MB to ~4 MB while using all 15. Render layer reworked: hero/emblem,
+      asset-textured cards, scene with token frames + NPC selection, behaviour-
+      cycle section (stage chips + promo), icon-tagged gauges/metrics, and a NEW
+      Why/causality panel sourced from build_model's per-persona `why` (shared
+      layer, no UI re-derivation). Fixed the live-cockpit scroll bug (the event
+      stream auto-scrolled via scrollIntoView, jumping the whole page; now it
+      scrolls only its own container, only while playing). CLI gained
+      `report incidents`. Missing assets fall back to warm CSS gradients.
   - id: tests
     what: >
       tests/test_observe.py, tests/test_reports.py (the §8 behavioural validation
       suite — idle->boredom, boredom->seeking, activity->fatigue, fatigue->rest,
       night->recovery, deterministic summaries, ambient summaries don't mutate
-      state, reports build from a trace without rerun), tests/test_observatory.py.
+      state, reports build from a trace without rerun), tests/test_observatory.py
+      (asset embed + optimize, page embeds assets, build_model includes `why`),
+      tests/test_cli.py (observation commands incl. report incidents).
       Full suite green; golden determinism + import contract intact.
 
 findings:

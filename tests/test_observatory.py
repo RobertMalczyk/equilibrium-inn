@@ -52,3 +52,45 @@ def test_export_html_from_trace(trace_dir):
     model = O.build_model(recs, CFG, stride=4)
     assert model["cast"] == [c.id for c in CFG.cast]
     assert len(model["ticks"]) == len(recs[::4])
+
+
+def test_assets_load_and_embed():
+    assets = OB.load_assets()
+    # the art pack embeds as image data URIs under their canonical names,
+    # regardless of the on-disk extension (PNGs fill SVG-named slots)
+    for name in ("equilibrium_observatory_emblem.svg", "icon_boredom.svg",
+                 "icon_causality.svg", "divider_lantern_vine.svg",
+                 "npc_token_base.svg", "overlay_fireflies_soft.svg",
+                 "bg_observatory_warm.png", "scene_inn_rooms.png"):
+        assert name in assets, name
+        assert assets[name].startswith("data:image/"), assets[name][:24]
+
+
+def test_unoptimized_load_preserves_source_mime():
+    # raw embed path (optimize off) keeps the source format
+    assets = OB.load_assets(optimize=False)
+    assert assets["bg_observatory_warm.png"].startswith("data:image/png;base64,")
+
+
+def test_page_embeds_assets():
+    model = {"meta": {}, "cast": ["welf"], "display_names": {"welf": "Welf"},
+             "rooms": ["common_room"], "days": [1], "high_thresholds": {},
+             "state_families": {"need": [], "affect": [], "sleep": []},
+             "ticks": [{"t": 0, "day": 1, "clock": "06:00", "night": False,
+                        "rain": False, "event": None, "world": {},
+                        "personas": {"welf": {"mode": "idle", "mood": "calm",
+                                     "room": "common_room", "action": "neutral",
+                                     "states": {}, "raw": {}}}}],
+             "stride": 1, "transitions": [], "crossings": [], "incidents": [],
+             "daily": {}, "why": {"welf": ["Welf has done nothing yet."]},
+             "metrics": {"incidents": 0}}
+    html = OB.page(model)
+    assert "window.ASSETS=" in html
+    assert "renderWhy" in html and 'id="emblem"' in html
+
+
+def test_build_model_includes_why(trace_dir):
+    recs = M.load_records(trace_dir / "trace.jsonl.gz")
+    model = O.build_model(recs, CFG)
+    assert "why" in model and set(model["why"]) == {c.id for c in CFG.cast}
+    assert all(isinstance(v, list) for v in model["why"].values())

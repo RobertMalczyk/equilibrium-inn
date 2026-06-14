@@ -128,12 +128,17 @@ boot();
 
 
 def build_index() -> Path:
+    import json
     boot = CONTROLS_AND_BOOT.replace("__PYODIDE__", PYODIDE_CDN)
+    assets = OB.load_assets()  # embed the same asset pack as the static export
+    adata = json.dumps(assets, ensure_ascii=False)
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        "<title>Living Inn Observatory — live</title><style>" + OB.STYLE + "</style></head>"
+        "<title>Living Inn Observatory — live</title>"
+        "<style>" + OB.STYLE + "</style><style>" + OB._asset_css(assets) + "</style></head>"
         "<body>" + OB.BODY +
+        "<script>window.ASSETS=" + adata + ";</script>"
         "<script>" + OB.SCRIPT + "</script>" + boot +
         "</body></html>"
     )

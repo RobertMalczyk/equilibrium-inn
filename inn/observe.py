@@ -551,5 +551,6 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
                        "action": i.action, "event_id": i.event_id,
                        "provoked_by": i.provoked_by} for i in incs],
         "daily": daily,
+        "why": {p: why(records, p) for p in cast},
         "metrics": aggregate_metrics(records, cfg),
     }

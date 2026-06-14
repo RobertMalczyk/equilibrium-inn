@@ -331,7 +331,10 @@ class CliSession:
             return self._report_activity()
         if sub == "scarcity":
             return self._report_scarcity()
-        return ["report what? (day [N] | npc <name> | sleep | activity | scarcity)"]
+        if sub == "incidents":
+            return self._report_incidents()
+        return ["report what? (day [N] | npc <name> | sleep | activity | "
+                "scarcity | incidents)"]
 
     def _report_sleep(self) -> list[str]:
         """Does night recover fast states? Fatigue/stress at each day's last
@@ -380,6 +383,19 @@ class CliSession:
                 out.append(f"  {who(pid):<9} denied {lost[pid]}x")
         return out
 
+    def _report_incidents(self) -> list[str]:
+        incs = M.incidents(self.records, self.incident_actions)
+        if not incs:
+            out = ["Incidents: none so far — the inn has stayed calm."]
+        else:
+            cs = M.cascade_stats(incs)
+            out = [f"Incidents: {len(incs)} in {cs['n_cascades']} cascade(s); "
+                   f"max depth {cs['max_depth']}, max breadth {cs['max_size']}."]
+            for i in incs[:12]:
+                root = " (rooted)" if i.provoked_by is None else ""
+                out.append(f"  day {i.day} {i.clock}  {who(i.actor)} — {i.action}{root}")
+        return out
+
     def _plot(self, args: list[str]) -> list[str]:
         if len(args) < 2:
             return ["plot <name> <state> [state ...]  e.g. plot welf boredom fatigue"]
@@ -406,7 +422,7 @@ class CliSession:
             "  insult/command/help/praise/serve <name> — act on someone present\n"
             "  wait [n] — let n ticks pass   sleep — advance to morning\n"
             "  observe all | observe <name> — state cards (mood/mode/needs)\n"
-            "  report day [N] | npc <name> | sleep | activity | scarcity\n"
+            "  report day [N] | npc <name> | sleep | activity | scarcity | incidents\n"
             "  plot <name> <state...> — sparkline (e.g. plot welf boredom fatigue)\n"
             "  why <name> — why their last act happened (works for routine too)\n"
             "  mode — toggle ambient summaries   look — who's here   quit\n"

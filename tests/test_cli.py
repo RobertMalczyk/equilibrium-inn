@@ -82,3 +82,13 @@ def test_menu_maps_number_to_verb():
     s = _sess()
     verb = s._menu_to_verb(1)
     assert verb.split()[0] in VERBS
+
+
+def test_observation_commands():
+    s = _sess()
+    s.do("wait 60")
+    assert any("Welf" in ln or "Wojs" in ln for ln in s.do("observe all"))
+    assert s.do("report day")[0].startswith("Day")
+    assert "Incidents" in s.do("report incidents")[0]
+    assert any("boredom" in ln for ln in s.do("plot welf boredom fatigue"))
+    assert s.do("mode")[0].startswith("Observation Mode")
