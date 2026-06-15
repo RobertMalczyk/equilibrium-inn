@@ -14,6 +14,7 @@ from pathlib import Path
 
 from inn.config import InnConfig, load_inn_config
 from inn.engine_surface import ENGINE_ROOT, PINNED_COMMIT, believable_day_layout
+from inn.intervention import ControlState, make_intervention
 from inn.loop import InnLoop
 from inn.trace import TraceWriter
 
@@ -40,9 +41,16 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                 richness_mults: dict | None = None,
                 persona_loader=None,
                 n_ticks: int | None = None,
-                profile: str | None = None) -> dict:
+                profile: str | None = None,
+                control: ControlState | None = None,
+                interventions: list[dict] | None = None) -> dict:
     """Run one session; write session.json + trace.jsonl.gz; return the header
-    (including the resulting trace sha256)."""
+    (including the resulting trace sha256).
+
+    M-G: pass `control` (a ControlState naming the manually-controlled subject)
+    and `interventions` (an ordered list of replayable injected-event dicts:
+    {t, subject, verb, target}). These are part of the determinism tuple — the
+    same control + interventions reproduce the identical trace SHA."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     seed = cfg.g0["seed"] if seed is None else seed
@@ -54,7 +62,11 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                    transducer_scale=transducer_scale,
                    richness_mults=richness_mults,
                    persona_loader=persona_loader,
-                   profile=profile)
+                   profile=profile, control=control)
+    for iv in (interventions or []):
+        loop.queue_intervention(
+            iv["t"], make_intervention(iv["verb"], iv.get("target"),
+                                       llm=iv.get("llm")))
     loop.run(n_ticks)
     sha = writer.close()
 
@@ -69,7 +81,9 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
         "richness_mults": richness_mults,
         "profile": profile,
         "layout": {k: layout[k] for k in ("dt", "day_ticks", "waking_ticks")},
-        "injected_events": [],  # player verbs append here in the CLI milestone
+        "controlled_subject": control.subject if control is not None else None,
+        "controlled_mode": control.mode if control is not None else None,
+        "injected_events": list(interventions or []),  # M-G manual actions (replayable)
         "trace_sha256": sha,
     }
     (out_dir / "session.json").write_text(
@@ -86,8 +100,15 @@ def replay(session_path: str | Path, inn_yaml: str | Path,
         raise ValueError("inn.yaml has changed since the session was recorded")
     if header["engine_commit"] != PINNED_COMMIT:
         raise ValueError("engine commit differs from the session header")
+    interventions = header.get("injected_events") or []
+    subject = header.get("controlled_subject")
+    if subject is None and interventions:
+        subject = interventions[0]["subject"]
+    mode = header.get("controlled_mode") or "manual"
+    control = ControlState(subject=subject, mode=mode) if subject else None
     return run_session(cfg, header["probe_plan"], out_dir, seed=header["seed"],
                        transducer_scale=header["transducer_scale"],
                        richness_mults=header["richness_mults"],
                        n_ticks=header["n_ticks"],
-                       profile=header.get("profile"))
+                       profile=header.get("profile"),
+                       control=control, interventions=interventions)

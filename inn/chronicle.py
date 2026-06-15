@@ -73,7 +73,15 @@ def event_line(rec: dict) -> str | None:
             parts.append(f"{actor} {phrase} at {target}")
         else:
             parts.append(f"{actor} {phrase}")
-    return "; ".join(parts) if parts else None
+    if not parts:
+        return None
+    line = "; ".join(parts)
+    # M-G: mark a beat the observer caused via a controlled subject, so the
+    # chronicle never makes an intervention look like autonomous behaviour.
+    iv = rec.get("intervention")
+    if iv and iv.get("selected_by") == "manual_override":
+        line = f"(your intervention) {line}"
+    return line
 
 
 def _link_text(event_id: str, records_by_id: dict) -> str | None:

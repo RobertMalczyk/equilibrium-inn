@@ -223,6 +223,14 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .ev.hl{background:rgba(181,83,46,.13);border-left:3px solid var(--incident);
   padding-left:7px;border-radius:0 5px 5px 0;font-weight:600}
 .ev.hl .tt{color:var(--incident)}
+.ev.intv{color:#1f6f72;font-weight:600;border-left:3px solid #2a9aa0;padding-left:7px}
+.ev.intv .sub{font-weight:400}
+.intvlog{margin-top:8px;max-height:240px;overflow:auto}
+.llmtag{color:#6b5836;font-style:italic;font-weight:400}
+#intvconsole label{display:flex;gap:5px;align-items:center;font-size:13px}
+#intvconsole select,#intvconsole input{font:inherit;padding:2px 4px}
+.intvchip{display:inline-block;background:rgba(42,154,160,.13);border:1px solid #2a9aa0;
+  border-radius:5px;padding:1px 7px;margin:2px;font-size:12px}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -287,6 +295,15 @@ BODY = """
       <div class="card" style="margin-top:16px"><h3><img id="whyicon" alt="">Why — causality</h3>
         <div class="why" id="why"></div></div>
     </div>
+  </div>
+  <div class="divider plain" id="d4" style="display:none"></div>
+  <div class="card" id="intvpanel" style="display:none">
+    <h3>Intervention console — observer control</h3>
+    <div class="sub" id="intvhint">Take manual control of one subject; the engine
+      still computes their interior — you override only the outward action, routed
+      through the normal world path. This is a behavioural probe, not a game.</div>
+    <div class="bar" id="intvconsole"></div>
+    <div class="intvlog" id="intvlog"></div>
   </div>
   <div class="footer"><img id="footemblem" alt=""><br>
     An instrument for observing Equilibrium Engine — not a game.</div>
@@ -425,8 +442,29 @@ function renderWhy(){const p=selected||MODEL.cast[0]; const lines=(MODEL.why&&MO
     (lines.length?lines.map((l,i)=>`<div class="${i===0?'head':'ln'}">${l}</div>`).join('')
       :'<div class="ln">nothing to explain yet.</div>');}
 
+// M-G: read-only intervention log. Shown only when the run carried observer
+// overrides (autonomous runs never set MODEL.interventions), so the autonomous
+// page and the G2 parity model are unchanged.
+function renderInterventions(){const iv=MODEL.interventions||[]; const panel=$('intvpanel');
+  if(!panel)return;
+  const cur=MODEL.ticks[frame].t;
+  if(!iv.length && !(window.IS_COCKPIT)){panel.style.display='none';return;}
+  panel.style.display='block'; const d4=$('d4'); if(d4)d4.style.display='block';
+  const overrides=iv.filter(x=>x.selected_by==='manual_override');
+  const shown=overrides.filter(x=>x.t<=cur);
+  $('intvlog').innerHTML = overrides.length
+    ? `<div class="sub">${overrides.length} manual override(s) this run; `
+      +`${shown.length} so far at the playhead.</div>`
+      +shown.map(x=>{const at=x.target?(' at '+nm(x.target)):'';
+        const llm=x.llm?` <span class="llmtag">via text: “${(x.llm.original_text||'')}”</span>`:'';
+        return `<div class="ev intv"><span class="tt">${x.clock}</span><span>`
+          +`<b>${nm(x.subject)}</b> ${fmt(x.user_selected_action)}${at} `
+          +`<span class="sub">(engine would have: ${fmt(x.engine_would_have_selected)})</span>${llm}`
+          +`</span></div>`;}).join('')
+    : '<div class="ev amb">no overrides yet — the subject is autonomous.</div>';}
+
 function select(p){selected=p;renderScene();renderCards();renderWhy();}
-function render(){renderHeader();renderScene();renderCards();renderStream();renderMetrics();renderWhy();drawPlayhead();}
+function render(){renderHeader();renderScene();renderCards();renderStream();renderMetrics();renderWhy();renderInterventions();drawPlayhead();}
 function step(){frame=(frame+1)%MODEL.ticks.length;$('scrub').value=frame;render();}
 
 function init(){
