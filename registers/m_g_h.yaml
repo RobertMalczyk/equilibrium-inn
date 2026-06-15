@@ -1,0 +1,117 @@
+milestone: M-G (Controlled Subject / Intervention Mode) + M-H (Optional LLM Semantic Seam)
+state: IMPLEMENTED. The observer may take manual control of ONE existing cast
+  member; the engine still ticks that persona and computes its full interior — the
+  observer overrides only the OUTWARD action, routed through the normal
+  world/transducer + probe path. The trace records both what the engine would have
+  selected and what the observer chose. M-H adds an OPTIONAL free-text seam that
+  maps observer text -> a structured candidate -> validation -> confirmation ->
+  the EXACT M-G execution path. ZERO engine changes; ZERO dynamics tuning; golden +
+  G2 parity + import contract intact. 139 tests green (113 prior + 26 new).
+updated: 2026-06-15
+
+done:
+  - id: intervention-module
+    what: >
+      inn/intervention.py — DATA + VALIDATION only. ControlState (mutable, shared
+      by reference between CLI and loop). ACTION_PALETTE: a finite, engine-
+      compatible palette (observe/noop, help, praise, serve, command, complain,
+      refuse, cold/cold_reply, insult, seek_activity, rest), each tagged with a
+      ROUTE. validate_target enforces: target is cast, present/reachable in the
+      subject's room, not self; target-less verbs reject a target. make_intervention
+      + serialize (replayable injected-event records).
+  - id: routing
+    what: >
+      Two clean routes, both pre-existing world-layer paths. route="transduce" for
+      actions with a transducer row (insult->outburst, help->cooperate,
+      praise->positive_response, complain, refuse, cold->cold_response): the loop
+      synthesises an ActionSelection and runs transduce() addressed to the
+      observer-chosen target (carries the table's floor/witnessing policy).
+      route="probe" for command (command_other is silent in the table) and serve
+      (food_given is a perceivable input event with no reactive row): a subject-
+      sourced Probe through the existing inject_player_probe path. The asymmetry is
+      documented in the module docstring as a known seam; anything that cannot route
+      cleanly is left out of the palette (future work).
+  - id: loop-hook
+    what: >
+      inn/loop.py — InnLoop(control=ControlState) + queue_intervention + a read-only
+      _synth_selection. The engine tick() runs UNCHANGED for the controlled subject
+      (interior committed in Phase A). In MANUAL the Phase B/C transducer input is
+      swapped: a transduce-route act replaces the subject's outward selection
+      (target = the observer's choice, treated as an external root cause); a
+      probe-route act is delivered in Phase A; no act -> a silent noop. The engine's
+      autonomous selection stays in record["personas"][subject]["selection"]. A
+      guarded record["intervention"] block (subject, selected_by ∈
+      {engine|manual_override|manual_noop}, engine_would_have_selected,
+      user_selected_action, target, route, optional llm) is emitted ONLY when a
+      subject is under control — so autonomous runs stay byte-identical.
+  - id: session-replay
+    what: >
+      inn/session.py — run_session/replay take control + interventions (an ordered
+      list of replayable {t, subject, verb, target} dicts). These join the
+      determinism tuple: the header carries controlled_subject/mode +
+      injected_events; replay reconstructs them and reproduces the identical trace
+      SHA. injected_events stays [] for autonomous runs (golden header semantics).
+  - id: cli
+    what: >
+      inn/cli.py — control <name> / release / auto / manual / act <action> [target]
+      / suggest. act validates + queues + advances. observe/why/footer/help are
+      intervention-aware: the subject card shows CONTROLLED [AUTO|MANUAL] + "engine
+      would: X"; why <subject> attributes a manual override to the observer and
+      contrasts it with the engine's would-be choice. Discoverability derived from
+      ACTION_PALETTE. save_session writes the replayable injected_events.
+  - id: observe-chronicle-report
+    what: >
+      inn/observe.py — why() distinguishes manual override vs autonomous;
+      build_model adds an "interventions" list ONLY when overrides exist (autonomous
+      model + G2 parity hash unchanged); report_intervention() summarises overrides,
+      by action, targets, incidents-after, reactions attributed to the subject, and
+      the auto-vs-manual incident delta. inn/chronicle.py tags observer-caused
+      beats. experiments/report_intervention.py renders the markdown report
+      (scripted control welf -> command/insult halgrim vs the autonomous baseline).
+  - id: observatory
+    what: >
+      inn/observatory.py — an "Intervention console" panel + a read-only override
+      log (engine-would-have vs you-chose, distinct teal styling, LLM-text tag),
+      shown only when a run carried overrides (or in the cockpit). observatory/
+      build_bundle.py — run_live_controlled + a live console (subject/action/target/
+      tick, queue overrides, "Run with control") in the Pyodide cockpit. The default
+      run_live / parity path is unchanged -> G2 parity preserved.
+  - id: llm-seam
+    what: >
+      inn/llm_seam.py — OPTIONAL, OFF unless EQUILIBRIUM_INN_LLM_PROVIDER is set.
+      enabled(); InterventionCandidate; strict schema_validate (action in palette,
+      intensity/confidence ∈ [0,1], target via validate_target, optional confidence
+      threshold); map_text dispatches on provider (openai default + anthropic, both
+      lazy-imported) or takes an injected fake client (tests). The API key is read
+      from env at call time and handed to the SDK only — NEVER placed in any
+      structure that reaches the trace/header/log. CLI say/llm "<text>" -> candidate
+      -> confirm executes through the M-G act path; trace records source
+      llm_semantic_mapper + original_text + structured_candidate + final action.
+  - id: tests
+    what: >
+      tests/test_intervention.py (12 M-G acceptance + manual-noop silence, probe-
+      route delivery, palette-route invariant, replay, unknown-verb) and
+      tests/test_llm_seam.py (10 M-H: disabled-by-default, palette-without-LLM,
+      malformed/invalid-action/invalid-target rejection, confirmation required,
+      confirmed-executes-through-M-G, trace records original_text+candidate, API key
+      never persisted, no real API call via a fake client). Full suite 139 green;
+      golden canonical session + G2 parity reference unchanged.
+
+decisions:
+  - "MANUAL idle (advance with no act) = silent noop (user, 2026-06-15): the engine
+     still ticks and evolves the subject's interior; only the outward action is
+     suppressed."
+  - "LLM seam is provider-agnostic (user, 2026-06-15): start with OpenAI, Anthropic
+     also wired for development; disabled by default, mocked in tests."
+  - "Override = REPLACE: the engine's autonomous selection is recorded but NOT
+     transduced in MANUAL; it never reaches the world. Engine state is never
+     mutated by the override (the engine ticks identically)."
+
+deferred:
+  - "Palette routing asymmetry (transduce-route reactive actions vs probe-route
+     perceivable input events) is inherent to the current world surface; widening it
+     needs new transducer rows (engine work) — documented, not worked around."
+  - "Burst/displacement interaction with manual floods is out of scope (overlay OFF);
+     manual insults are bounded by the same vent/cooldown dampers as autonomous ones."
+  - "Comparative auto-vs-manual dashboard inside the Observatory UI (the report data
+     exists; only the side-by-side in-UI view is unbuilt)."

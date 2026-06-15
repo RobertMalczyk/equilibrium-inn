@@ -59,11 +59,13 @@ if str(ENGINE_ROOT) not in sys.path:
 # Public surface re-exports (noqa: imports require the path insertion above).
 from engine.simulation import tick  # noqa: E402
 from engine.schema import (  # noqa: E402
+    ActionKind,
     ActionSelection,
     Mode,
     PersonaConfig,
     PersonaRuntime,
     RawEvent,
+    StateDelta,
 )
 from engine.schema import (  # noqa: E402
     GLOBAL_STATES,
@@ -125,7 +127,9 @@ __all__ = [
     "PINNED_COMMIT",
     "verify_pin",
     "tick",
+    "ActionKind",
     "ActionSelection",
+    "StateDelta",
     "Mode",
     "PersonaConfig",
     "PersonaRuntime",

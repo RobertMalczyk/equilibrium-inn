@@ -336,6 +336,26 @@ def why(records: list[dict], pid: str) -> list[str]:
         a = action_of(rec, pid)
         if a not in ("neutral", "continue", "idle"):
             last = rec
+    # M-G: a manual override is the observer's act, not the engine's. If the
+    # subject's most recent notable moment was an override, attribute it to the
+    # observer and contrast it with what the engine would have selected.
+    last_override = None
+    for rec in records:
+        iv = rec.get("intervention")
+        if iv and iv.get("subject") == pid and iv.get("selected_by") == "manual_override":
+            last_override = rec
+    if last_override is not None and (last is None or last_override["t"] >= last["t"]):
+        iv = last_override["intervention"]
+        tgt = iv.get("target")
+        at = f" at {who(tgt)}" if tgt else ""
+        lines = [f"{who(pid)} — MANUAL OVERRIDE by the observer "
+                 f"({last_override['clock']}, day {last_override['day']}).",
+                 f"  you chose: {iv['user_selected_action']}{at}",
+                 f"  the engine would have selected: "
+                 f"{iv['engine_would_have_selected']}."]
+        if iv.get("llm"):
+            lines.append(f"  (from free text: \"{iv['llm'].get('original_text', '')}\")")
+        return lines
     if last is None:
         return [f"{who(pid)} has done nothing worth tracing yet."]
     a = action_of(last, pid)
@@ -356,6 +376,67 @@ def why(records: list[dict], pid: str) -> list[str]:
     if expl:
         lines.append(f"  ({expl})")
     return lines
+
+
+# -- intervention report (M-G) ------------------------------------------------
+
+def interventions_in(records: list[dict]) -> list[dict]:
+    """The observer's manual overrides in a trace (subject, action, target,
+    engine_would_have_selected), oldest first."""
+    out = []
+    for rec in records:
+        iv = rec.get("intervention")
+        if iv and iv.get("selected_by") == "manual_override":
+            out.append({"t": rec["t"], "clock": rec["clock"], "day": rec["day"],
+                        **iv})
+    return out
+
+
+def report_intervention(records_manual: list[dict],
+                        records_auto: list[dict] | None,
+                        cast: list[str],
+                        incident_actions: tuple[str, ...]) -> dict:
+    """Intervention-aware summary (CLAUDE.md M-G §Reports): how many manual
+    overrides, by action, which targets, the incidents/reactions that followed,
+    and (if an autonomous counterfactual is supplied) the incident-count delta.
+    Pure read over the trace — never re-runs the sim."""
+    ivs = interventions_in(records_manual)
+    by_action = Counter(iv["user_selected_action"] for iv in ivs)
+    targets = Counter(iv["target"] for iv in ivs if iv.get("target"))
+
+    # reactions attributed to a controlled subject AFTER an override (the social
+    # consequence): target-role transductions whose target_inferred is a subject
+    # the observer drove, occurring at/after that subject's first override.
+    subjects = {iv["subject"] for iv in ivs}
+    first_override_t = min((iv["t"] for iv in ivs), default=None)
+    incs = M.incidents(records_manual, incident_actions)
+    incidents_after = [i for i in incs
+                       if first_override_t is not None and i.t >= first_override_t]
+    reactions_to_subject = []
+    for rec in records_manual:
+        if first_override_t is None or rec["t"] < first_override_t:
+            continue
+        for tr in rec.get("transductions", []):
+            if tr["role"] == "target" and tr.get("target_inferred") in subjects \
+                    and tr["actor"] not in subjects:
+                reactions_to_subject.append(
+                    {"t": rec["t"], "clock": rec["clock"], "actor": tr["actor"],
+                     "as": tr["as"], "toward": tr["target_inferred"]})
+
+    out = {
+        "n_overrides": len(ivs),
+        "by_action": dict(by_action),
+        "targets": dict(targets),
+        "subjects": sorted(subjects),
+        "overrides": ivs,
+        "incidents_after": len(incidents_after),
+        "reactions_to_subject": reactions_to_subject,
+        "llm_assisted": sum(1 for iv in ivs if iv.get("llm")),
+    }
+    if records_auto is not None:
+        out["incidents_auto"] = len(M.incidents(records_auto, incident_actions))
+        out["incidents_manual"] = len(incs)
+    return out
 
 
 # -- aggregate metrics (UI dashboard) -----------------------------------------
@@ -550,10 +631,20 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
                                   "action": tr["action"],
                                   "target": tr.get("target_inferred")})
 
+    # M-G: observer interventions (present only when a subject was controlled).
+    # Added as a non-empty key ONLY when interventions exist, so an autonomous
+    # model (and the G2 parity hash built from it) is unchanged.
+    interventions = []
+    for rec in records:
+        iv = rec.get("intervention")
+        if iv and iv.get("selected_by") in ("manual_override", "manual_noop"):
+            interventions.append({"t": rec["t"], "clock": rec["clock"],
+                                  "day": rec["day"], **iv})
+
     incs = M.incidents(records, inc_actions)
     daily = {p: {d: daily_summary(records, p, d, inc_actions).to_dict() for d in days}
              for p in cast}
-    return {
+    model = {
         "meta": meta or {},
         "cast": cast,
         "display_names": {p: who(p) for p in cast},
@@ -575,3 +666,6 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
         "reactions": reactions,
         "metrics": aggregate_metrics(records, cfg),
     }
+    if interventions:
+        model["interventions"] = interventions
+    return model

@@ -89,8 +89,52 @@ const PLAN_DESC={
   impulse:"one public insult into a calm evening (day 1, 20:00)",
   step:"a rainy day 2 (outdoor work closes; stress rises)",
   control:"nothing scripted — the calm baseline"};
-let PY=null, runLive=null;
+let PY=null, runLive=null, runControlled=null, PALETTE=[], INTERVENTIONS=[];
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
+function buildIntvConsole(){
+  const box=document.getElementById('intvconsole'); if(!box||!window.MODEL)return;
+  const cast=window.MODEL.cast||[], nm=id=>(window.MODEL.display_names||{})[id]||id;
+  const castOpts=cast.map(p=>`<option value="${p}">${nm(p)}</option>`).join('');
+  const palOpts=PALETTE.map(v=>`<option value="${v}">${v}</option>`).join('');
+  box.innerHTML=`<label title="The cast member you take over. The engine still computes their interior.">subject <select id="iv_subj">${castOpts}</select></label>
+    <label title="When (tick) the override fires.">tick <input id="iv_tick" type="number" value="200" style="width:72px"></label>
+    <label title="The outward action — finite, engine-compatible palette.">action <select id="iv_action">${palOpts}</select></label>
+    <label title="Who the action is aimed at (must be present with the subject).">target <select id="iv_target"><option value="">(none)</option>${castOpts}</select></label>
+    <button id="iv_add" title="Queue this override.">Add override</button>
+    <button id="iv_run" title="Re-run live with the queued overrides (manual control).">Run with control</button>
+    <button id="iv_clear" title="Discard queued overrides.">Clear</button>
+    <div style="flex-basis:100%" id="iv_list"></div>`;
+  const refresh=()=>{document.getElementById('iv_list').innerHTML=
+    INTERVENTIONS.length?INTERVENTIONS.map((x,i)=>
+      `<span class="intvchip">t${x.t} ${nm(x.subject)} ${x.verb}${x.target?(' → '+nm(x.target)):''}`
+      +` <a href="#" data-i="${i}" class="iv_del">×</a></span>`).join('')
+      :'<span class="sub">no overrides queued — Add some, then Run with control.</span>';
+    document.querySelectorAll('.iv_del').forEach(a=>a.onclick=ev=>{ev.preventDefault();
+      INTERVENTIONS.splice(+a.dataset.i,1);refresh();});};
+  document.getElementById('iv_add').onclick=()=>{
+    const subj=document.getElementById('iv_subj').value,
+      verb=document.getElementById('iv_action').value,
+      target=document.getElementById('iv_target').value||null,
+      t=parseInt(document.getElementById('iv_tick').value||'0',10);
+    INTERVENTIONS.push({t,subject:subj,verb,target}); refresh();};
+  document.getElementById('iv_clear').onclick=()=>{INTERVENTIONS=[];refresh();};
+  document.getElementById('iv_run').onclick=()=>doRunControlled();
+  refresh();
+}
+async function doRunControlled(){
+  if(!runControlled){setStatus('still booting…');return;}
+  const subj=INTERVENTIONS.length?INTERVENTIONS[0].subject:
+    (document.getElementById('iv_subj')||{}).value;
+  setStatus('simulating with intervention…');
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    await runControlled(document.getElementById('c_profile').value,
+      document.getElementById('c_plan').value,
+      parseInt(document.getElementById('c_seed').value||'7',10),
+      subj, JSON.stringify(INTERVENTIONS));
+    setStatus('live · intervention'); buildIntvConsole();
+  }catch(e){console.error(e); setStatus('controlled run failed: '+e);}
+}
 function opts(arr,desc){return arr.map(p=>`<option title="${desc[p]||''}">${p}</option>`).join('');}
 function buildControls(){
   const c=document.getElementById('controls'); c.style.display='flex';
@@ -143,7 +187,7 @@ async function doRun(){
     await runLive(document.getElementById('c_profile').value,
       document.getElementById('c_plan').value,
       parseInt(document.getElementById('c_seed').value||'7',10));
-    setStatus('live · Pyodide');
+    setStatus('live · Pyodide'); buildIntvConsole();
   }catch(e){console.error(e); setStatus('run failed: '+e);}
 }
 async function boot(){
@@ -187,8 +231,31 @@ def run_parity(seed, n):
     h = run_session(CFG, "control", tempfile.mkdtemp(), seed=int(seed),
                     n_ticks=int(n), profile="game_semantic_profile")
     return h["trace_sha256"]
+def run_live_controlled(profile, plan, seed, subject, interventions_json):
+    # M-G: same live run, but with the observer controlling one subject. The
+    # engine still ticks that subject; the queued manual actions override only
+    # the outward action, routed through the normal world/transducer + probe path.
+    from inn.intervention import ControlState, make_intervention
+    ivs = json.loads(interventions_json) if interventions_json else []
+    control = ControlState(subject, "manual") if subject else None
+    m=_Mem()
+    loop=InnLoop(CFG, seed=int(seed), probe_plan=plan, trace=m, profile=profile,
+                 control=control)
+    for iv in ivs:
+        loop.queue_intervention(int(iv["t"]),
+                                make_intervention(iv["verb"], iv.get("target")))
+    loop.run(CFG.days*DAY)
+    model=O.build_model(m.records, CFG, meta={"subtitle":"live · intervention"}, stride=2)
+    js.window.MODEL = js.JSON.parse(json.dumps(model))
+    js.init()
+def palette_verbs():
+    from inn.intervention import PALETTE_VERBS
+    return list(PALETTE_VERBS)
 `);
     runLive=(p,pl,sd)=>PY.globals.get("run_live")(p,pl,sd);
+    runControlled=(p,pl,sd,subj,ivs)=>PY.globals.get("run_live_controlled")(p,pl,sd,subj,ivs);
+    PALETTE=PY.globals.get("palette_verbs")().toJs();
+    window.IS_COCKPIT=true;
     const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
     const pbtn=document.getElementById('c_parity'); if(pbtn)pbtn.disabled=false;
     setStatus('ready — running first simulation…');

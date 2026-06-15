@@ -23,6 +23,13 @@ from inn import observe as O
 from inn.chronicle import event_line, who
 from inn.config import InnConfig, Probe, load_inn_config
 from inn.engine_surface import PINNED_COMMIT, believable_day_layout
+from inn.intervention import (
+    PALETTE_VERBS,
+    ControlState,
+    make_intervention,
+    serialize,
+    validate_target,
+)
 from inn.loop import InnLoop
 from inn.trace import TraceWriter
 
@@ -41,6 +48,9 @@ VERBS: dict[str, tuple[str, float, bool]] = {
 # living world (CLAUDE.md M-D); `mode` toggles ambient summaries on/off.
 META = ("wait", "look", "observe", "report", "plot", "why", "mode",
         "sleep", "help", "quit")
+# M-G intervention verbs (control one cast member); M-H optional free-text seam.
+CONTROL_VERBS = ("control", "release", "auto", "manual", "act", "suggest",
+                 "say", "llm", "confirm")
 
 
 def _bar(value: float, width: int = 12) -> str:
@@ -68,13 +78,20 @@ class CliSession:
         self.cfg = cfg
         layout = believable_day_layout()
         self.n_ticks = cfg.days * layout["day_ticks"]
+        # M-G: a live control register shared by reference with the loop, so
+        # control/auto/manual/release take effect on the ticks that follow.
+        self.control = ControlState()
         self.loop = InnLoop(cfg, seed=seed, probe_plan="control",
                             trace=TraceWriter(out_dir / "trace.jsonl.gz"),
-                            profile=profile)
+                            profile=profile, control=self.control)
         self.t = 0
         self.player_room = player_room
         self.records: list[dict] = []
         self.verb_log: list[tuple[int, str]] = []
+        # structured manual actions, for the replayable session log (injected_events)
+        self.interventions: list[dict] = []
+        # M-H: a pending LLM-mapped candidate awaiting `confirm`
+        self._pending_say: dict | None = None
         self.seed = seed
         self.out_dir = out_dir
         self.done = False
@@ -156,12 +173,112 @@ class CliSession:
         return [p for p in self.loop.presence.cohort(self.player_room)
                 if p in {c.id for c in self.cfg.cast}]
 
+    def _present_to(self, subject: str) -> list[str]:
+        """Cast present with `subject` in their current room (manual-act targets)."""
+        room = self.loop.presence.room_of(subject)
+        return [p for p in self.loop.presence.cohort(room)
+                if p != subject and p in {c.id for c in self.cfg.cast}]
+
+    # -- M-G intervention --------------------------------------------------
+
+    def _execute_intervention(self, verb: str, target: str | None,
+                              llm: dict | None = None) -> list[str]:
+        """Validate + queue a manual action for the controlled subject, then
+        advance. Shared by `act` (palette) and `confirm` (LLM-mapped)."""
+        subject = self.control.subject
+        err = validate_target(self.cfg, self.loop.presence, subject, verb, target)
+        if err is not None:
+            return [err]
+        action = make_intervention(verb, target, llm=llm)
+        self.loop.queue_intervention(self.t, action)
+        self.interventions.append(serialize(self.t, subject, action))
+        label = f"{who(subject)} {verb}" + (f" {who(target)}" if target else "")
+        self.verb_log.append((self.t, f"act {verb}" + (f" {target}" if target else "")))
+        beats = self._advance(8, stop_when_quiet=3)
+        return beats or [f"_({label}. Nothing comes of it — yet.)_"]
+
+    def _act(self, args: list[str]) -> list[str]:
+        if self.control.subject is None:
+            return ["No one is under control — `control <name>` first."]
+        if self.control.mode != "manual":
+            return [f"{who(self.control.subject)} is AUTO. Switch with `manual` "
+                    f"before you `act`."]
+        if not args:
+            return [f"act how? (`act <action> [target]`)  palette: "
+                    f"{', '.join(PALETTE_VERBS)}"]
+        verb = args[0].lower()
+        target = None
+        if len(args) > 1:
+            target = self._resolve(args[1])
+            if target is None:
+                return [self._suggest(args[1])]
+        return self._execute_intervention(verb, target)
+
+    def _suggest_subject(self) -> list[str]:
+        if self.control.subject is None:
+            return ["No one is under control — `control <name>` first."]
+        s = self.control.subject
+        eng = "?"
+        if self.records:
+            iv = self.records[-1].get("intervention")
+            if iv and iv["subject"] == s:
+                eng = iv["engine_would_have_selected"]
+            else:
+                eng = self.records[-1]["personas"][s]["selection"]["action"]
+        present = self._present_to(s)
+        return [f"{who(s)} — the engine inclines toward: {eng} "
+                f"({'MANUAL' if self.control.mode == 'manual' else 'AUTO'}).",
+                f"  palette: {', '.join(PALETTE_VERBS)}",
+                f"  targets present: {', '.join(who(p) for p in present) or 'no one'}"]
+
+    # -- M-H optional LLM seam (disabled unless configured) ----------------
+
+    def _say(self, text: str) -> list[str]:
+        from inn import llm_seam
+        if not llm_seam.enabled():
+            return ["Free-text input is off (no LLM configured). Set "
+                    "EQUILIBRIUM_INN_LLM_PROVIDER to enable it, or use the finite "
+                    f"palette: `act <action> [target]` ({', '.join(PALETTE_VERBS)})."]
+        if self.control.subject is None:
+            return ["Control a subject first (`control <name>` then `manual`); "
+                    "free text maps to that subject's action."]
+        if self.control.mode != "manual":
+            return [f"{who(self.control.subject)} is AUTO. Switch with `manual` first."]
+        text = text.strip().strip('"').strip("'")
+        if not text:
+            return ['say what? e.g. say "tell welf to rest"']
+        result = llm_seam.map_text(text, cfg=self.cfg, presence=self.loop.presence,
+                                   subject=self.control.subject)
+        if not result.ok:
+            self._pending_say = None
+            return [f"Couldn't map that to a valid action: {result.message}"]
+        c = result.candidate
+        self._pending_say = {"verb": c.action, "target": c.target, "llm": result.provenance}
+        tgt = f" at {who(c.target)}" if c.target else ""
+        return [f"LLM proposes: {c.action}{tgt}  (confidence {c.confidence:.2f})",
+                f"  rationale: {c.rationale}",
+                f"  validation: {result.message}",
+                "`confirm` to execute it as a manual override, or anything else to cancel."]
+
+    def _confirm(self) -> list[str]:
+        if self._pending_say is None:
+            return ["Nothing to confirm."]
+        pend = self._pending_say
+        self._pending_say = None
+        return self._execute_intervention(pend["verb"], pend["target"],
+                                          llm=pend["llm"])
+
     def footer(self) -> str:
         present = ", ".join(who(p) for p in self._present()) or "no one"
-        return (f"[{self.clock()}] In the {self.player_room.replace('_', ' ')} "
-                f"with: {present}.\n"
-                f"verbs: {', '.join(VERBS)} <name> | "
-                f"{', '.join(META)}")
+        lines = [f"[{self.clock()}] In the {self.player_room.replace('_', ' ')} "
+                 f"with: {present}.",
+                 f"verbs: {', '.join(VERBS)} <name> | {', '.join(META)}"]
+        if self.control.subject is not None:
+            lines.append(f"controlling {who(self.control.subject)} "
+                         f"[{self.control.mode.upper()}]: act/auto/manual/suggest/release")
+        else:
+            lines.append("control: `control <name>` to take over one subject")
+        return "\n".join(lines)
 
     def do(self, line: str) -> list[str]:
         """Execute one player input; return the lines to display."""
@@ -207,6 +324,44 @@ class CliSession:
                 if self._at_night_or_evening() else self._advance(40)
             return beats or ["_(Time advances; the inn rests and fast states "
                              "recover by morning.)_"]
+
+        # -- M-G intervention verbs --------------------------------------
+        if verb == "control":
+            if not args:
+                return ["control who? (`control <name>`)"]
+            name = self._resolve(args[0])
+            if name is None:
+                return [self._suggest(args[0])]
+            self.control.subject = name
+            self.control.mode = "auto"
+            return [f"You take control of {who(name)} (AUTO — observing). "
+                    f"`manual` to intervene, `release` to let go."]
+        if verb == "release":
+            if self.control.subject is None:
+                return ["No one is under your control."]
+            old = self.control.subject
+            self.control.subject = None
+            self.control.mode = "auto"
+            return [f"You release {who(old)}; they resume autonomous behaviour."]
+        if verb in ("auto", "manual"):
+            if self.control.subject is None:
+                return ["No one is under control — `control <name>` first."]
+            self.control.mode = verb
+            if verb == "auto":
+                return [f"{who(self.control.subject)} is AUTO — the engine drives "
+                        f"them; you observe."]
+            return [f"{who(self.control.subject)} is MANUAL — `act <action> [target]` "
+                    f"to intervene. Without an act they stay silent (the engine "
+                    f"still computes their state)."]
+        if verb == "suggest":
+            return self._suggest_subject()
+        if verb == "act":
+            return self._act(args)
+        # -- M-H optional LLM seam ---------------------------------------
+        if verb in ("say", "llm"):
+            return self._say(line[len(verb):].strip())
+        if verb == "confirm":
+            return self._confirm()
 
         if verb in VERBS:
             if not args:
@@ -263,8 +418,13 @@ class CliSession:
         mode = O.MODE_LABEL[O.mode_of(rec, pid)]
         room = (rec["presence"].get(pid) or "?").replace("_", " ")
         act = self._need_recently(pid)
+        ctrl = ""
+        if self.control.subject == pid:
+            iv = rec.get("intervention")
+            eng = iv["engine_would_have_selected"] if iv else "?"
+            ctrl = f" | CONTROLLED [{self.control.mode.upper()}], engine would: {eng}"
         head = (f"{who(pid)} — {mood} | {mode}" + (f" | {act}" if act else "")
-                + f"  ({rec['clock']}, in the {room})")
+                + ctrl + f"  ({rec['clock']}, in the {room})")
         g = rec["personas"][pid]["state_after_post"]["global"]
         lines = [head]
         for fam in ("need", "affect", "sleep"):
@@ -424,9 +584,16 @@ class CliSession:
             "  observe all | observe <name> — state cards (mood/mode/needs)\n"
             "  report day [N] | npc <name> | sleep | activity | scarcity | incidents\n"
             "  plot <name> <state...> — sparkline (e.g. plot welf boredom fatigue)\n"
-            "  why <name> — why their last act happened (works for routine too)\n"
+            "  why <name> — why their last act happened (manual vs autonomous)\n"
             "  mode — toggle ambient summaries   look — who's here   quit\n"
-            "Example:  wait 60   then   observe all   then   why welf")
+            "Intervention (observe one subject under control):\n"
+            "  control <name> — take over   auto | manual — observe vs intervene\n"
+            "  act <action> [target] — manual action (palette: "
+            f"{', '.join(PALETTE_VERBS)})\n"
+            "  suggest — what the engine would do now   release — let go\n"
+            "  say \"<text>\" — optional LLM free-text -> candidate -> confirm "
+            "(off unless configured)\n"
+            "Example:  control welf   then   manual   then   act insult halgrim")
 
     # -- session log -------------------------------------------------------
 
@@ -439,6 +606,9 @@ class CliSession:
             "profile": self.loop.profile,
             "ticks_played": self.t,
             "injected_verbs": [{"t": t, "verb": v} for t, v in self.verb_log],
+            "controlled_subject": self.control.subject,
+            "controlled_mode": self.control.mode if self.control.subject else None,
+            "injected_events": list(self.interventions),  # M-G replayable manual actions
         }
         p = self.out_dir / "session.json"
         p.write_text(json.dumps(header, indent=2), encoding="utf-8")
@@ -483,7 +653,7 @@ def _try_readline(session: CliSession) -> None:
         import readline
     except ImportError:
         return
-    vocab = list(VERBS) + list(META)
+    vocab = list(VERBS) + list(META) + list(CONTROL_VERBS)
 
     def completer(text: str, state: int):
         names = [who(p) for p in session._present()]

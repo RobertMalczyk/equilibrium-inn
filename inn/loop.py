@@ -21,15 +21,25 @@ from inn.config import InnConfig, Probe
 from inn.economy import Economy
 from inn.engine_surface import (
     ENGINE_ROOT,
+    ActionKind,
+    ActionSelection,
     Mode,
     PersonaRuntime,
     RawEvent,
+    StateDelta,
     believable_day_layout,
     burst_overrides,
     init_runtime,
     load_persona,
     tick,
     timescale_overrides,
+)
+from inn.intervention import (
+    ROUTE_NONE,
+    ROUTE_PROBE,
+    ROUTE_TRANSDUCE,
+    ControlState,
+    InterventionAction,
 )
 from inn.inbox import Inbox
 from inn.presence import Presence
@@ -82,7 +92,8 @@ class InnLoop:
                  richness_mults: dict | None = None,
                  persona_loader: Callable[[str], object] | None = None,
                  extra_events: list[tuple[int, str, RawEvent]] | None = None,
-                 profile: str | None = None):
+                 profile: str | None = None,
+                 control: ControlState | None = None):
         self.cfg = cfg
         # DEC-6: the inn SHIPS as its default profile (game_semantic_profile).
         # profile=None resolves to cfg.default_profile; pass an explicit name
@@ -124,11 +135,33 @@ class InnLoop:
         self._extra = extra_events or []
         # interactive player probes (M-C), delivered through _deliver_probe.
         self._player_probes: dict[int, list[Probe]] = {}
+        # M-G intervention: the live control register (shared by reference with
+        # the CLI) and per-tick manual actions for the controlled subject. When
+        # control is None the loop is byte-identical to an autonomous run (the
+        # `intervention` record key is emitted ONLY when control is not None).
+        self._control = control
+        self._control_pending: dict[int, InterventionAction] = {}
 
     def inject_player_probe(self, t: int, probe: Probe) -> None:
         """Queue a player verb as a probe for tick t (>= the next tick to run);
         delivered through the same path as batch probes."""
         self._player_probes.setdefault(t, []).append(probe)
+
+    def queue_intervention(self, t: int, action: InterventionAction) -> None:
+        """Queue a manual action for the controlled subject at tick t. Routed in
+        _step: probe-route actions through _deliver_probe (Phase A), transduce-
+        route through the transducer swap (Phase B/C)."""
+        self._control_pending[t] = action
+
+    def _synth_selection(self, action: str, score: float) -> ActionSelection:
+        """A read-only ActionSelection standing in for the subject's outward
+        action this tick. transduce() reads only .action and .score; the engine
+        state is untouched (no post_effects are applied — this never reaches
+        the engine, only the world transducer)."""
+        return ActionSelection(action=action, score=score,
+                               kind=ActionKind.REACTIVE, interrupted=False,
+                               post_effects=StateDelta(),
+                               explanation="manual override (M-G)")
 
     # -- probe expansion ----------------------------------------------------
 
@@ -205,6 +238,20 @@ class InnLoop:
         # batch probes (provenance + witnessing), not the inbox-bypassing _extra.
         for p in self._player_probes.pop(t, []):
             probe_records += self._deliver_probe(t, p)
+        # M-G: a probe-route manual action (command/serve) for the controlled
+        # subject is injected as a subject-sourced probe — the SAME path player
+        # verbs take, so the target perceives "the subject commanded/served me".
+        ctrl_act = self._control_pending.get(t)
+        controlled = self._control.subject if self._control is not None else None
+        if (ctrl_act is not None and controlled is not None
+                and self._control.mode == "manual"
+                and ctrl_act.route == ROUTE_PROBE):
+            subj_room = self.presence.room_of(controlled)
+            probe = Probe(day=self.clock.day_of(t), hhmm=self.clock.clock_str(t),
+                          type=ctrl_act.probe_type, intensity=ctrl_act.intensity,
+                          source=controlled, target=ctrl_act.target, room=subj_room,
+                          context={"public": True} if ctrl_act.public else {})
+            probe_records += self._deliver_probe(t, probe)
         for (et, recipient, ev) in self._extra:
             if et == t:
                 self.inboxes[recipient].push(ev, t)
@@ -273,12 +320,48 @@ class InnLoop:
         transduction_records = []
         gap_records = []
         conflict_by_room: dict[str, float] = {}
+        ctrl_mode = self._control.mode if self._control is not None else None
+        intervention_rec = None
         for c in cfg.cast:
             sel = tick_traces[c.id].selection
             prov_id, prov_source, prov_t = self._last_prov[c.id]
             if prov_id is not None and t - prov_t > cfg.inbox.max_defer_ticks:
                 prov_id, prov_source = None, None
                 self._last_prov[c.id] = (None, None, -1)
+
+            # M-G: the controlled subject's OUTWARD action is the observer's, not
+            # the engine's. The engine still ticked it above (interior committed);
+            # here we swap only what reaches the world. AUTO leaves the engine
+            # selection untouched. The autonomous selection stays in the persona
+            # trace (record["personas"][subject]["selection"]) regardless.
+            if c.id == controlled:
+                engine_action = sel.action
+                if ctrl_mode == "manual" and ctrl_act is not None \
+                        and ctrl_act.route == ROUTE_TRANSDUCE:
+                    sel = self._synth_selection(ctrl_act.engine_action, ctrl_act.intensity)
+                    prov_source = ctrl_act.target          # observer-chosen target
+                    prov_id = f"{t}:{c.id}:manual:probe"   # an external (root) cause
+                    selected_by = "manual_override"
+                elif ctrl_mode == "manual":
+                    # probe-route act (already delivered in Phase A) or no act:
+                    # the subject emits nothing through the transducer this tick.
+                    sel = self._synth_selection("noop", 0.0)
+                    prov_source, prov_id = None, None
+                    selected_by = "manual_override" if ctrl_act is not None else "manual_noop"
+                else:
+                    selected_by = "engine"
+                manual = ctrl_mode == "manual" and ctrl_act is not None
+                intervention_rec = {
+                    "subject": c.id,
+                    "selected_by": selected_by,
+                    "engine_would_have_selected": engine_action,
+                    "user_selected_action": ctrl_act.verb if manual else None,
+                    "target": ctrl_act.target if manual else None,
+                    "route": ctrl_act.route if manual else ROUTE_NONE,
+                }
+                if manual and ctrl_act.llm is not None:
+                    intervention_rec["llm"] = ctrl_act.llm
+
             result = transduce(cfg, t, c.id, sel,
                                provoking_source=prov_source,
                                provoking_id=prov_id,
@@ -331,5 +414,9 @@ class InnLoop:
             "dropped": dropped_records,
             "rain": in_rain,
         }
+        # M-G: emitted ONLY when a subject is under control, so autonomous runs
+        # (control is None) stay byte-identical to the golden trace.
+        if intervention_rec is not None:
+            record["intervention"] = intervention_rec
         self.trace.emit(record)
         return record
