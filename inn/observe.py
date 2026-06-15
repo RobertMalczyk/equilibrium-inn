@@ -531,6 +531,25 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
             "world": rec.get("world", {}),
         })
 
+    # Categorized event stream (full fidelity — never strided), so the UI can
+    # colour-code input vs output vs custom:
+    #   inputs    = external stimuli (probes); source "player" == a custom poke
+    #   reactions = NPC outputs (target-role transductions: outburst/refusal/…)
+    inputs, reactions = [], []
+    for rec in records:
+        for pr in rec.get("probes", []):
+            parts = pr["probe"].split(":")  # "{t}:{source}:{type}:probe"
+            if len(parts) >= 3:
+                inputs.append({"t": rec["t"], "clock": rec["clock"],
+                               "source": parts[1], "type": parts[2],
+                               "custom": parts[1] == "player"})
+        for tr in rec.get("transductions", []):
+            if tr["role"] == "target":
+                reactions.append({"t": rec["t"], "clock": rec["clock"],
+                                  "actor": tr["actor"], "as": tr["as"],
+                                  "action": tr["action"],
+                                  "target": tr.get("target_inferred")})
+
     incs = M.incidents(records, inc_actions)
     daily = {p: {d: daily_summary(records, p, d, inc_actions).to_dict() for d in days}
              for p in cast}
@@ -552,5 +571,7 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
                        "provoked_by": i.provoked_by} for i in incs],
         "daily": daily,
         "why": {p: why(records, p) for p in cast},
+        "inputs": inputs,
+        "reactions": reactions,
         "metrics": aggregate_metrics(records, cfg),
     }

@@ -215,8 +215,11 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .stream{height:330px;overflow:auto;font-size:13px}
 .ev{padding:4px 0;border-top:1px dotted var(--line);display:flex;gap:8px}
 .ev .tt{color:var(--muted);font-variant-numeric:tabular-nums;width:50px;flex:none}
-.ev.inc{color:var(--incident);font-weight:600}
-.ev.amb{font-style:italic;color:#6b5836}
+.ev.inp{color:#9a6a16}                 /* input: external stimulus */
+.ev.cust{color:#1f7a72;font-weight:600}/* custom: your injected action */
+.ev.react{color:#9a4a26}               /* output: an NPC reaction */
+.ev.inc{color:var(--incident);font-weight:600} /* output: an incident (outburst) */
+.ev.amb{font-style:italic;color:#6b5836}        /* behaviour: mode transition */
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -272,7 +275,9 @@ BODY = """
   </div>
   <div class="divider" id="d3"></div>
   <div class="grid cols">
-    <div class="card"><h3>What is happening</h3><div class="stream" id="stream"></div></div>
+    <div class="card"><h3>What is happening</h3>
+      <div class="legend" id="streamleg"></div>
+      <div class="stream" id="stream"></div></div>
     <div>
       <div class="card"><h3>Validation metrics</h3><div class="metrics" id="metrics"></div></div>
       <div class="card" style="margin-top:16px"><h3><img id="whyicon" alt="">Why — causality</h3>
@@ -299,6 +304,8 @@ function img(n,cls){const u=asset(n);return u?`<img class="${cls||''}" src="${u}
 function phaseOf(clock,night){if(night)return 'night';
   const h=parseInt(clock.split(':')[0],10);return h<9?'morning':h<18?'workday':'evening';}
 function fmt(s){return (s||'').replace(/_/g,' ');}
+function nm(id){return (MODEL.display_names&&MODEL.display_names[id])||
+  (id?id.charAt(0).toUpperCase()+id.slice(1):'someone');}
 
 function renderHeader(){const tk=MODEL.ticks[frame];
   $('clock').textContent='Day '+tk.day+'  '+tk.clock;
@@ -368,20 +375,25 @@ function drawPlayhead(){const n=MODEL.ticks.length, ax=$('axis'); if(!ax)return;
 function tickIndex(t){let best=-1;for(let i=0;i<MODEL.ticks.length;i++){if(MODEL.ticks[i].t<=t)best=i;else break;}return best;}
 
 function renderStream(){const cur=MODEL.ticks[frame].t; const items=[];
-  MODEL.ticks.forEach(tk=>{if(tk.event)items.push({t:tk.t,clock:tk.clock,txt:tk.event,cls:''});});
-  MODEL.incidents.forEach(i=>items.push({t:i.t,clock:i.clock,txt:MODEL.display_names[i.actor]+' — '+i.action,cls:'inc'}));
+  (MODEL.inputs||[]).forEach(i=>items.push({t:i.t,clock:i.clock,
+    cls:i.custom?'cust':'inp',
+    txt:(i.custom?'You':nm(i.source))+' '+fmt(i.type)+(i.custom?' — your action':' — input')}));
+  (MODEL.reactions||[]).forEach(r=>items.push({t:r.t,clock:r.clock,
+    cls:r.action==='outburst'?'inc':'react',
+    txt:nm(r.actor)+' '+fmt(r.as)+(r.target&&r.target!==r.actor?' → '+nm(r.target):'')+' — reaction'}));
   MODEL.transitions.filter(x=>['SEEKING','BUSY','SLEEP'].includes(x.new)&&x.driver).forEach(x=>
     items.push({t:x.t,clock:x.clock,cls:'amb',
-      txt:MODEL.display_names[x.pid]+' '+x.prev.toLowerCase()+'→'+x.new.toLowerCase()+(x.driver?' ('+x.driver+' '+x.driver_value+')':'')}));
-  items.sort((a,b)=>a.t-b.t);
+      txt:nm(x.pid)+' '+x.prev.toLowerCase()+'→'+x.new.toLowerCase()+(x.driver?' ('+x.driver+' '+x.driver_value+')':'')}));
+  // A LIVE feed: show only what has happened up to the current playhead, so the
+  // log fills in as you scrub/play instead of dumping the whole run at once.
+  const shown=items.filter(it=>it.t<=cur).sort((a,b)=>a.t-b.t);
   const box=$('stream');
-  box.innerHTML=items.map(it=>`<div class="ev ${it.cls}" data-t="${it.t}" style="opacity:${it.t<=cur?1:.3}">
-      <span class="tt">${it.clock}</span><span>${it.txt}</span></div>`).join('')||'<div class="ev">quiet…</div>';
-  // Auto-scroll the STREAM CONTAINER ONLY (never the page) — and only while
-  // playing, so manual scroll-back is not fought. Fixes the page-jump bug.
-  if(playing){const evs=[...box.querySelectorAll('.ev')];
-    let last=null; evs.forEach(e=>{if(parseFloat(e.style.opacity)===1)last=e;});
-    if(last)box.scrollTop=last.offsetTop-box.clientHeight+last.offsetHeight+8;}}
+  box.innerHTML=shown.map(it=>`<div class="ev ${it.cls}">`
+      +`<span class="tt">${it.clock}</span><span>${it.txt}</span></div>`).join('')
+    ||'<div class="ev amb">quiet so far…</div>';
+  // Keep newest in view by scrolling the CONTAINER ONLY (never the page). render()
+  // only runs on a frame change, so a paused user can still scroll back freely.
+  box.scrollTop=box.scrollHeight;}
 
 function renderMetrics(){const m=MODEL.metrics;
   const cells=[['incidents',m.incidents,'icon_stress.svg'],['cascade depth',m.cascade_max_depth,'icon_causality.svg'],
@@ -408,6 +420,10 @@ function init(){
   if(asset('equilibrium_observatory_emblem.svg')){$('emblem').src=asset('equilibrium_observatory_emblem.svg');
     $('footemblem').src=asset('equilibrium_observatory_emblem.svg');}
   if(asset('icon_causality.svg'))$('whyicon').src=asset('icon_causality.svg');
+  const SL=[['input','#9a6a16'],['your action (custom)','#1f7a72'],
+    ['reaction (output)','#9a4a26'],['incident','#b5532e'],['behaviour','#6b5836']];
+  $('streamleg').innerHTML=SL.map(([k,c])=>
+    `<span><span class="dot" style="background:${c}"></span>${k}</span>`).join('');
   const dv=asset('divider_lantern_vine.svg');
   if(dv)['d1','d2','d3'].forEach(id=>$(id).style.setProperty('--div',`url('${dv}')`));
   else ['d1','d2','d3'].forEach(id=>$(id).classList.add('plain'));
