@@ -82,21 +82,39 @@ CONTROLS_AND_BOOT = r"""
 <script>
 const PROFILES=["game_semantic_profile","g0_stability_profile"];
 const PLANS=["impulse","step","control"];
+const PROFILE_DESC={
+  game_semantic_profile:"shipped default — partial idle recovery + restored scarcity",
+  g0_stability_profile:"the frozen, hearth-stable G0 baseline (no idle recovery)"};
+const PLAN_DESC={
+  impulse:"one public insult into a calm evening (day 1, 20:00)",
+  step:"a rainy day 2 (outdoor work closes; stress rises)",
+  control:"nothing scripted — the calm baseline"};
 let PY=null, runLive=null;
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
+function opts(arr,desc){return arr.map(p=>`<option title="${desc[p]||''}">${p}</option>`).join('');}
 function buildControls(){
   const c=document.getElementById('controls'); c.style.display='flex';
-  c.innerHTML=`<label>profile <select id="c_profile">${PROFILES.map(p=>`<option>${p}</option>`).join('')}</select></label>
-    <label>protocol <select id="c_plan">${PLANS.map(p=>`<option>${p}</option>`).join('')}</select></label>
-    <label>seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
-    <button id="c_run" disabled>Run simulation</button>
+  c.innerHTML=`<label title="The inn's character — which behavioural profile the cast runs under.">profile <select id="c_profile">${opts(PROFILES,PROFILE_DESC)}</select></label>
+    <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
+    <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
+    <button id="c_run" disabled title="Re-run the full 3-day, 7-NPC simulation in-browser with these settings.">Run simulation</button>
     <span class="grow"></span>
-    <button id="c_parity" disabled title="Run the fixed G2 session in-browser and compare to the CPython reference">Verify parity</button>
+    <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
     <span id="p_status" class="sub">parity: idle</span>
     <span id="c_status" class="sub">booting Pyodide…</span>
+    <div id="c_help" style="flex-basis:100%;font-size:12px;color:var(--muted);line-height:1.5"></div>
     <div id="p_detail" style="flex-basis:100%;font-size:12px;color:var(--muted)"></div>`;
   document.getElementById('c_run').onclick=()=>doRun();
   document.getElementById('c_parity').onclick=()=>verifyParity();
+  const refresh=()=>{const pf=document.getElementById('c_profile').value,
+    pl=document.getElementById('c_plan').value;
+    document.getElementById('c_help').innerHTML=
+      `<b>profile</b> ${pf}: ${PROFILE_DESC[pf]} · <b>protocol</b> ${pl}: ${PLAN_DESC[pl]} `
+      +`· <b>seed</b>: deterministic — same settings reproduce the same run. `
+      +`<b>Run simulation</b> recomputes in-browser; <b>Verify parity</b> checks Pyodide matches CPython.`;};
+  document.getElementById('c_profile').onchange=refresh;
+  document.getElementById('c_plan').onchange=refresh;
+  refresh();
 }
 function pstat(t,color){const s=document.getElementById('p_status');
   if(s){s.textContent='parity: '+t; s.style.color=color||'';}}
