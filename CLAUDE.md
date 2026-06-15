@@ -314,7 +314,7 @@ reviews artifacts before the next stage is authorized.
 |---|---|---|---|
 | **G0 stability** | Does a 4–6 persona coupled inn settle, saturate at clamps, or limit-cycle after canonical probes? | Headless 3-day runs on the instrument; sweep transducer intensity × recovery on/off × catalog richness; inspect envelopes, clamp dwell, FFT of state traces | Saturation → recovery layer + world-side damping factor (world config, not engine calibration). Persistent oscillation → judged on believability; may be a feature |
 | **G1 semantics** | Are the transducer table, witnessing policy, contention rule and catalog semantics right? | User audits the YAML + G0 traces + chronicles | Revise — it is data |
-| **G2 parity** (only if/when a browser build is pursued) | Pyodide byte-identical to CPython? | Fixed 1,000-tick session, full-trace SHA-256 both interpreters | Server-backed fallback; the world layer is transport-agnostic |
+| **G2 parity** (only if/when a browser build is pursued) | Pyodide byte-identical to CPython? | Fixed 1,000-tick session, full-trace SHA-256 both interpreters | Server-backed fallback; the world layer is transport-agnostic | **[VERIFIED 2026-06-15: CPython == Pyodide v0.26.2 SHA on the fixed 1000-tick session; cockpit Verify-parity button + Pages site live. See registers/m_e.yaml G2-verified.]** |
 | **G3 build-out** | Scope sign-off for CLI polish / viewer extension / public extraction | — | — |
 
 G0 is also a harvest: its NPC-sourced exchanges are exported in the existing scenario

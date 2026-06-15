@@ -69,6 +69,17 @@ done:
       (fingerprints match golden). Full suite 106 green.
 
 findings:
+  - id: G2-verified
+    what: >
+      G2 PARITY VERIFIED 2026-06-15. The fixed session (control, seed 7, 1000
+      ticks, game_semantic_profile) produces a byte-identical full-trace SHA-256
+      under CPython and under Pyodide v0.26.2:
+      6a7404b6c30c699e9498e04e9271d6f85823d97e1bc2de9c5fb9e84c1927573a. Verified by
+      running the cockpit's run_parity in real Pyodide (CPython-in-WASM, same
+      runtime the browser uses) via Node, loading inn_bundle.zip + numpy (Pyodide
+      dist) + pyyaml (micropip). The in-cockpit "Verify parity" button performs the
+      identical computation; this closes the G2 gate (interpreter parity). Pages is
+      LIVE at https://robertmalczyk.github.io/equilibrium-inn/ (deploy succeeded).
   - id: F-me-1
     what: >
       Litmus result (impulse): engine = 8 incidents, cascade depth 3 / breadth 3
