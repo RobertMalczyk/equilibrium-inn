@@ -19,6 +19,7 @@ Then serve over http (fetch needs it): python -m http.server -d observatory
 from __future__ import annotations
 
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from inn.engine_surface import ENGINE_ROOT, verify_pin
 
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / "observatory"
+if str(ROOT) not in sys.path:           # allow `python observatory/build_bundle.py`
+    sys.path.insert(0, str(ROOT))       # so `experiments` / `observatory` resolve
 STAGE = HERE / "_stage"
 ENGINE_SUBDIRS = ("engine", "eval", "data", "calibration")
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
@@ -79,16 +82,58 @@ CONTROLS_AND_BOOT = r"""
 <script>
 const PROFILES=["game_semantic_profile","g0_stability_profile"];
 const PLANS=["impulse","step","control"];
+const PROFILE_DESC={
+  game_semantic_profile:"shipped default — partial idle recovery + restored scarcity",
+  g0_stability_profile:"the frozen, hearth-stable G0 baseline (no idle recovery)"};
+const PLAN_DESC={
+  impulse:"one public insult into a calm evening (day 1, 20:00)",
+  step:"a rainy day 2 (outdoor work closes; stress rises)",
+  control:"nothing scripted — the calm baseline"};
 let PY=null, runLive=null;
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
+function opts(arr,desc){return arr.map(p=>`<option title="${desc[p]||''}">${p}</option>`).join('');}
 function buildControls(){
   const c=document.getElementById('controls'); c.style.display='flex';
-  c.innerHTML=`<label>profile <select id="c_profile">${PROFILES.map(p=>`<option>${p}</option>`).join('')}</select></label>
-    <label>protocol <select id="c_plan">${PLANS.map(p=>`<option>${p}</option>`).join('')}</select></label>
-    <label>seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
-    <button id="c_run" disabled>Run simulation</button>
-    <span id="c_status" class="sub">booting Pyodide…</span>`;
+  c.innerHTML=`<label title="The inn's character — which behavioural profile the cast runs under.">profile <select id="c_profile">${opts(PROFILES,PROFILE_DESC)}</select></label>
+    <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
+    <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
+    <button id="c_run" disabled title="Re-run the full 3-day, 7-NPC simulation in-browser with these settings.">Run simulation</button>
+    <span class="grow"></span>
+    <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
+    <span id="p_status" class="sub">parity: idle</span>
+    <span id="c_status" class="sub">booting Pyodide…</span>
+    <div id="c_help" style="flex-basis:100%;font-size:12px;color:var(--muted);line-height:1.5"></div>
+    <div id="p_detail" style="flex-basis:100%;font-size:12px;color:var(--muted)"></div>`;
   document.getElementById('c_run').onclick=()=>doRun();
+  document.getElementById('c_parity').onclick=()=>verifyParity();
+  const refresh=()=>{const pf=document.getElementById('c_profile').value,
+    pl=document.getElementById('c_plan').value;
+    document.getElementById('c_help').innerHTML=
+      `<b>profile</b> ${pf}: ${PROFILE_DESC[pf]} · <b>protocol</b> ${pl}: ${PLAN_DESC[pl]} `
+      +`· <b>seed</b>: deterministic — same settings reproduce the same run. `
+      +`<b>Run simulation</b> recomputes in-browser; <b>Verify parity</b> checks Pyodide matches CPython.`;};
+  document.getElementById('c_profile').onchange=refresh;
+  document.getElementById('c_plan').onchange=refresh;
+  refresh();
+}
+function pstat(t,color){const s=document.getElementById('p_status');
+  if(s){s.textContent='parity: '+t; s.style.color=color||'';}}
+async function verifyParity(){
+  if(!PY){pstat('still booting…');return;}
+  pstat('running…','#9a6a16');
+  document.getElementById('p_detail').textContent='';
+  try{
+    const ref=await (await fetch('g2_reference.json')).json();
+    await new Promise(r=>setTimeout(r,20));
+    const actual=await PY.globals.get("run_parity")(ref.seed, ref.n_ticks);
+    const ok=actual===ref.trace_sha256;
+    pstat(ok?'passed ✅':'failed ❌', ok?'#3a7d2c':'#b5532e');
+    document.getElementById('p_detail').innerHTML=
+      (ok?'✅ CPython and Pyodide outputs match — live mode blessed.'
+        :'❌ mismatch; the static export remains the blessed path.')+
+      `<br>expected SHA: <code>${ref.trace_sha256}</code><br>actual&nbsp;&nbsp;SHA: <code>${actual}</code>`;
+  }catch(e){console.error(e); pstat('error ⚠️','#b5532e');
+    document.getElementById('p_detail').textContent='⚠️ error running parity check: '+e;}
 }
 async function doRun(){
   if(!runLive){setStatus('still booting…');return;}
@@ -134,9 +179,18 @@ def run_live(profile, plan, seed):
     model=O.build_model(m.records, CFG, meta={"subtitle":"live · Pyodide"}, stride=2)
     js.window.MODEL = js.JSON.parse(json.dumps(model))
     js.init()
+def run_parity(seed, n):
+    # Fixed G2 session, identical params to experiments.g2_parity; returns the
+    # full-trace SHA-256 (TraceWriter.close()) for in-browser parity comparison.
+    from inn.session import run_session
+    import tempfile
+    h = run_session(CFG, "control", tempfile.mkdtemp(), seed=int(seed),
+                    n_ticks=int(n), profile="game_semantic_profile")
+    return h["trace_sha256"]
 `);
     runLive=(p,pl,sd)=>PY.globals.get("run_live")(p,pl,sd);
     const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
+    const pbtn=document.getElementById('c_parity'); if(pbtn)pbtn.disabled=false;
     setStatus('ready — running first simulation…');
     await doRun();
   }catch(e){console.error(e); setStatus('boot failed: '+e+' (see console)');}
@@ -169,8 +223,12 @@ def build_index() -> Path:
 def main() -> None:
     z = build_bundle()
     i = build_index()
+    # Ensure the cockpit's "Verify parity" button has a reference to fetch.
+    from experiments.g2_parity import REFERENCE, ensure_reference
+    ensure_reference()
     print(f"wrote {z} ({z.stat().st_size // 1024} KB)")
     print(f"wrote {i}")
+    print(f"parity reference: {REFERENCE}")
     print("serve it:  python -m http.server -d observatory  "
           "then open http://localhost:8000/")
 

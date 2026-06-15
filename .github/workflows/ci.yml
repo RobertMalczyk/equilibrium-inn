@@ -1,0 +1,52 @@
+name: CI
+
+# PR + push validation: tests and the full site/cockpit build. Does NOT deploy —
+# publishing to GitHub Pages happens only on push to main (pages.yml). The engine
+# is cloned read-only at the pin DERIVED from inn/engine_surface.py (single source
+# of truth; no hardcoded SHA here). No simulation dynamics change.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout inn
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone the pinned engine (sibling, read-only)
+        run: |
+          PIN=$(python - <<'PY'
+          import re, pathlib
+          t = pathlib.Path("inn/engine_surface.py").read_text()
+          print(re.search(r'PINNED_COMMIT\s*=\s*"([0-9a-f]+)"', t).group(1))
+          PY
+          )
+          echo "engine pin (from inn/engine_surface.py): $PIN"
+          git clone --filter=blob:none https://github.com/RobertMalczyk/equilibrium-engine.git
+          git -C equilibrium-engine checkout "$PIN"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" pillow
+
+      - name: Run tests
+        run: python -m pytest tests -q
+
+      - name: Build cockpit bundle
+        run: python observatory/build_bundle.py
+
+      - name: Build site
+        run: python observatory/build_site.py
