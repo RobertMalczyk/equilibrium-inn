@@ -347,9 +347,14 @@ bark); `experiments/regression.py` freezes the canonical protocols' metric finge
 (`tests/golden/regression_metrics.json`, `--freeze` to re-baseline); `experiments/
 baseline_compare.py`; tunables in `inn.yaml` `baseline`. See `registers/m_e.yaml`]**.
 M-F (optional, post-G2) public extraction, fully self-hosted Pyodide cockpit,
-equilibrium-engine.dev page **[PARTIAL: the cockpit now uses a local Pyodide runtime when
-`observatory/pyodide/` is present (else CDN); the runtime is not vendored, and the public
-.dev page is infra-gated — deferred]**.
+equilibrium-engine.dev page **[PARTIAL — the "can do now" slice is DONE: one-click
+**Verify parity** in the cockpit (runs the fixed G2 session in Pyodide, compares to
+`g2_reference.json`, pass/fail with SHAs); `.github/workflows/pages.yml` + `observatory/
+build_site.py` + `observatory/landing.html` publish the showcase to GitHub Pages (no
+secrets/DNS); `observatory/fetch_pyodide.py` fetches the runtime on demand into
+`observatory/pyodide/` (not committed). REMAINS (user/infra): enable Pages, run the
+in-browser parity check to close G2, optionally fetch the runtime / set a CNAME domain.
+See `registers/m_e.yaml`]**.
 
 Per-milestone register: keep a `registers/` YAML log (state, decisions, findings,
 open questions) in the project's usual style; update it at every AUDIT.

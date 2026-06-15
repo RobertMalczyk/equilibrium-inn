@@ -1,0 +1,61 @@
+name: Deploy Observatory to GitHub Pages
+
+# Publishes the public showcase (landing page + static Observatory + Pyodide
+# cockpit) to GitHub Pages. Works on the default *.github.io URL with no secrets
+# and no custom DNS. A custom domain is optional (add an observatory/CNAME file —
+# build_site.py copies it into the published site). No simulation dynamics change.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout inn
+        uses: actions/checkout@v4
+
+      - name: Clone the pinned engine (sibling, read-only)
+        run: |
+          git clone --filter=blob:none https://github.com/RobertMalczyk/equilibrium-engine.git
+          git -C equilibrium-engine checkout 0176dbd78ba7b7eaa0cebbbb43392779469547a4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" pillow
+
+      - name: Build the site
+        run: python observatory/build_site.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: observatory/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

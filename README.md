@@ -143,14 +143,45 @@ python -m http.server 8000 -d observatory     # serve (fetch needs http)
 
 The cockpit bundles the inn + the **pinned engine** read-only (a `.engine_commit`
 sentinel is written into the *bundle copy* only — the engine checkout is never
-modified). The page's visuals are fully embedded (no other network use). The
-**Pyodide runtime** loads from its official CDN by default; for a fully-offline
-cockpit, drop the Pyodide v0.26.2 *full* distribution into `observatory/pyodide/`
-and rebuild — `build_bundle.py` will use the local copy instead of the CDN.
+modified). The page's visuals are fully embedded (no other network use).
 
-**G2 parity** — `python -m experiments.g2_parity` writes the CPython reference
-trace SHA + a static fallback Observatory; the cockpit is confirmed by matching
-the same fixed session's SHA in-browser.
+**Offline runtime (optional).** The **Pyodide runtime** loads from its official
+CDN by default. For a fully-offline cockpit, fetch it locally (it is **not**
+committed to git):
+
+```bash
+python observatory/fetch_pyodide.py     # downloads Pyodide v0.26.2 -> observatory/pyodide/
+python observatory/build_bundle.py      # build_bundle.py now uses the local copy
+```
+
+For release packaging, host the runtime via **Git LFS or a GitHub Release asset**,
+never a raw git commit.
+
+**Verify G2 parity (in-browser).** Run `python -m experiments.g2_parity` to write
+the CPython reference (`observatory/g2_reference.json`) + a static fallback. Then
+in the live cockpit click **Verify parity**: it runs the fixed 1,000-tick session
+in Pyodide and compares its trace SHA-256 to the reference, showing pass/fail with
+both SHAs. **G2 is closed only after a successful in-browser check.** Until then
+the static export is the deterministic, blessed fallback — and a parity failure
+does not break the Observatory (it just flags live mode as not-yet-blessed).
+
+### Publish the public showcase (GitHub Pages)
+
+One builder assembles the site (landing page + static Observatory + cockpit +
+parity reference); preview it exactly as published:
+
+```bash
+python observatory/build_site.py                  # -> observatory/_site/
+python -m http.server -d observatory/_site        # http://localhost:8000/
+```
+
+`.github/workflows/pages.yml` runs the same builder on every push to `main` and
+deploys to GitHub Pages — **no secrets, no custom DNS** required. To enable it:
+repo **Settings → Pages → Source: GitHub Actions**; the site then lives at the
+`*.github.io` URL. **Custom domain (optional, later):** add a file
+`observatory/CNAME` containing your domain (e.g. `equilibrium-engine.dev`) — the
+builder copies it into the published site — and point the domain's DNS at GitHub
+Pages.
 
 ### Visual assets
 

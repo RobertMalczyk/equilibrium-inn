@@ -38,10 +38,30 @@ done:
       writing experiments/out/g0/baseline/comparison.md. Reads only traces.
   - id: mf-selfhost
     what: >
-      (M-F partial) observatory/build_bundle.py now uses a LOCAL Pyodide runtime
-      if observatory/pyodide/pyodide.js exists, else the CDN — so the cockpit can
-      be made fully offline by dropping the v0.26.2 'full' build there (not
-      vendored; tens of MB; gitignored).
+      observatory/build_bundle.py uses a LOCAL Pyodide runtime if
+      observatory/pyodide/pyodide.js exists, else the CDN. observatory/
+      fetch_pyodide.py downloads the v0.26.2 release tarball into
+      observatory/pyodide/ (idempotent; --force/--check; not vendored; gitignored).
+  - id: mf-parity-button
+    what: >
+      (M-F) One-click "Verify parity" in the cockpit: runs the fixed G2 session
+      (control, seed 7, 1000 ticks, game_semantic_profile) in Pyodide and compares
+      its trace SHA-256 to observatory/g2_reference.json, showing idle/running/
+      passed/failed/error with both SHAs. Never blesses live mode unless the SHAs
+      match; a failure leaves the Observatory working with the static export as the
+      blessed fallback. experiments/g2_parity.py refactored to expose
+      parity_status() (pure, tested) + build_reference()/ensure_reference().
+      build_bundle ensures g2_reference.json exists for the button to fetch.
+      Full G2 closure still needs a real in-browser run (documented).
+  - id: mf-pages
+    what: >
+      (M-F) observatory/build_site.py — one DRY builder assembling observatory/
+      _site/ (index.html=landing, observatory.html=static export, cockpit.html=
+      Pyodide cockpit, inn_bundle.zip, g2_reference.json, assets/). observatory/
+      landing.html — the public showcase page (not-a-game framing; links to the
+      static Observatory, the live cockpit, and GitHub). .github/workflows/pages.yml
+      clones the pinned engine, builds the site, and deploys to GitHub Pages (no
+      secrets, no DNS). Optional custom domain via an observatory/CNAME file.
   - id: tests
     what: >
       tests/test_baseline.py (schema parity, metrics/observe read it, flat-control
@@ -60,10 +80,12 @@ findings:
       is exactly what the flat baseline lacks — the intended contrast, not a defect.
 
 deferred:
-  - "M-F remainder (infra-gated): self-hosted Pyodide is supported but the runtime
-     is not vendored; the equilibrium-engine.dev public page needs hosting/a domain
-     and is out of scope here. Public extraction is moot — the repo is already a
-     standalone public repo consuming the engine at a pinned commit."
+  - "M-F remainder (user/infra actions, not code): (1) enable Pages (Settings ->
+     Pages -> Source: GitHub Actions); (2) optionally run fetch_pyodide.py +
+     rebuild for an offline cockpit; (3) optionally add observatory/CNAME +
+     point DNS for a custom domain; (4) run the in-browser Verify-parity check and
+     record the result to CLOSE G2. The Pyodide runtime is intentionally NOT
+     committed (use Git LFS / a Release asset for packaging)."
   - "Comparative engine-vs-baseline panel inside the Observatory UI (the data +
      fingerprints exist; only the side-by-side view is unbuilt)."
   - "In-browser G2 parity equality assertion (reference + fallback ready, M-D)."

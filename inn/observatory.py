@@ -330,10 +330,19 @@ function renderScene(){const tk=MODEL.ticks[frame], byRoom={};
   $('moodlegend').innerHTML=Object.entries(MOOD_COLOR).map(([k,c])=>
     `<span><span class="dot" style="background:${c}"></span>${k}</span>`).join('');}
 
+function level(lab,v){const hi=(MODEL.high_thresholds&&MODEL.high_thresholds[lab])||0.6;
+  if(v>=hi)return['high','#b5532e'];
+  if(v>=hi*0.55)return['building','#a9762f'];
+  if(v>=0.12)return['low','#5d7a45'];
+  return['—','#9b9079'];}
 function gauge(lab,v,fam){const col=fam==='affect'?'var(--affect)':fam==='sleep'?'var(--sleepf)':'var(--need)';
+  // Observer view: a readable level word (no raw floats). Developer view: the float.
+  const lv=level(lab,v);
+  const tag=dev?`<span style="width:42px;text-align:right;color:var(--muted)">${v.toFixed(2)}</span>`
+    :`<span style="width:56px;text-align:right;font-weight:600;color:${lv[1]}">${lv[0]}</span>`;
   return `<div class="g">${img(STATE_ICON[lab])}<span class="lab">${lab}</span>
     <span class="gbar"><span class="gfill" style="width:${(v*100).toFixed(0)}%;background:${col}"></span></span>
-    ${dev?'<span>'+v.toFixed(2)+'</span>':''}</div>`;}
+    ${tag}</div>`;}
 function renderCards(){const tk=MODEL.ticks[frame], fam=MODEL.state_families;
   const which=s=>fam.affect.includes(s)?'affect':fam.sleep.includes(s)?'sleep':'need';
   $('cards').innerHTML=MODEL.cast.map(p=>{const ps=tk.personas[p], states=dev?ps.raw:ps.states;
