@@ -30,6 +30,14 @@ HERE = ROOT / "observatory"
 STAGE = HERE / "_stage"
 ENGINE_SUBDIRS = ("engine", "eval", "data", "calibration")
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
+# M-F (self-hosted cockpit): if a Pyodide distribution is dropped into
+# observatory/pyodide/ (download the v0.26.2 "full" build there), the cockpit uses
+# it instead of the CDN — fully offline. Not vendored here (it is tens of MB).
+PYODIDE_LOCAL = HERE / "pyodide"
+
+
+def _pyodide_base() -> str:
+    return "pyodide/" if (PYODIDE_LOCAL / "pyodide.js").is_file() else PYODIDE_CDN
 
 
 def _copy_engine(stage_engine: Path) -> None:
@@ -140,7 +148,7 @@ boot();
 
 def build_index() -> Path:
     import json
-    boot = CONTROLS_AND_BOOT.replace("__PYODIDE__", PYODIDE_CDN)
+    boot = CONTROLS_AND_BOOT.replace("__PYODIDE__", _pyodide_base())
     assets = OB.load_assets()  # embed the same asset pack as the static export
     adata = json.dumps(assets, ensure_ascii=False)
     html = (

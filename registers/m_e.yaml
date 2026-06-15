@@ -1,0 +1,70 @@
+milestone: M-E (baseline cast + regression harness) + M-F (partial)
+state: IMPLEMENTED (M-E). The deliberately-fair baseline cast runs side-by-side
+  with the engine on the same schedule/world/probes; a regression harness freezes
+  the canonical protocols' metric fingerprints. Observability/control only — ZERO
+  engine-dynamics changes; golden + import contract intact. 106 tests green.
+updated: 2026-06-15
+
+done:
+  - id: baseline-cast
+    what: >
+      inn/baseline.py — BaselineLoop: the industry-standard NPC as a fair control
+      (CLAUDE.md §1/§7). Reuses the inn's world layer UNCHANGED (ScheduleStream,
+      Presence, the transducer + witnessing, WorldStates, the society trace) and
+      swaps the engine brain for a schedule automaton (work the block / eat /
+      sleep) + a trigger->bark table (received insult -> outburst, gated by a fixed
+      anger threshold + cooldown; no priming, no grudge integration, no variety).
+      Emits the SAME trace schema, so inn.metrics / inn.observe / the Observatory
+      read it identically. Deterministic (inn.yaml + probe plan). run_baseline()
+      writes trace + session.json like inn.session.run_session.
+  - id: baseline-config
+    what: >
+      inn.yaml `baseline` block — the automaton/bark tunables (anger_gain,
+      bark_threshold, bark_score, cooldown_ticks, vent, boredom/fatigue rates,
+      night_recover, …). Behaviour-shaping numbers as DATA (hard rule 0.3); read
+      only by inn/baseline.py, never the engine path -> golden trace unaffected.
+      Parsed in inn/config.py (InnConfig.baseline).
+  - id: regression
+    what: >
+      experiments/regression.py — the canonical 3-day protocols (impulse/step/
+      control) frozen like golden traces: compute_fingerprint() condenses the §7
+      metric families (incidents, cascade depth/breadth, routine adherence, action
+      entropy, offers, contention) into a deterministic dict per protocol, diffed
+      against tests/golden/regression_metrics.json. `--freeze` re-baselines (the
+      ritual on an engine pin bump). Asserted by tests/test_regression.py.
+  - id: comparison
+    what: >
+      experiments/baseline_compare.py — engine vs baseline on every protocol,
+      writing experiments/out/g0/baseline/comparison.md. Reads only traces.
+  - id: mf-selfhost
+    what: >
+      (M-F partial) observatory/build_bundle.py now uses a LOCAL Pyodide runtime
+      if observatory/pyodide/pyodide.js exists, else the CDN — so the cockpit can
+      be made fully offline by dropping the v0.26.2 'full' build there (not
+      vendored; tens of MB; gitignored).
+  - id: tests
+    what: >
+      tests/test_baseline.py (schema parity, metrics/observe read it, flat-control
+      cascade depth<=1, determinism, sleeps+works) and tests/test_regression.py
+      (fingerprints match golden). Full suite 106 green.
+
+findings:
+  - id: F-me-1
+    what: >
+      Litmus result (impulse): engine = 8 incidents, cascade depth 3 / breadth 3
+      (primed, propagating), action entropy ~1.69; baseline = 1 incident, depth 1
+      / breadth 1 (a single triggered bark, no cascade), entropy ~1.54. Time
+      budget: baseline rigidly busy ~42% during work blocks vs the engine's
+      decided ~14% busy / ~55% idle / seeking+cooldown. The engine's living-world
+      texture (cascades, priming, variety, an activity economy with contention)
+      is exactly what the flat baseline lacks — the intended contrast, not a defect.
+
+deferred:
+  - "M-F remainder (infra-gated): self-hosted Pyodide is supported but the runtime
+     is not vendored; the equilibrium-engine.dev public page needs hosting/a domain
+     and is out of scope here. Public extraction is moot — the repo is already a
+     standalone public repo consuming the engine at a pinned commit."
+  - "Comparative engine-vs-baseline panel inside the Observatory UI (the data +
+     fingerprints exist; only the side-by-side view is unbuilt)."
+  - "In-browser G2 parity equality assertion (reference + fallback ready, M-D)."
+  - "Engine coupled-stability fix to flip burst_overlay true (see [[g1-audit-handoff]])."
