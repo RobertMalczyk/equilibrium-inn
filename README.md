@@ -136,13 +136,16 @@ the same fixed session's SHA in-browser.
 ### Visual assets
 
 The Observatory's art pack lives in
-[`observatory/assets/`](observatory/assets/) and is **base64-embedded** at
-build/export time, so both deliverables stay offline. The SVG assets (emblem,
-dividers, icons, NPC token frame, fireflies overlay) are authored and present;
-the larger PNG backgrounds (`bg_observatory_warm`, `hero_inn_header`,
-`scene_inn_rooms`, `panel_parchment_soft`, `promo_behavior_cycle`) are optional —
-drop them into that directory to enrich the page, and warm CSS gradients are used
-until then. See [`observatory/assets/README.md`](observatory/assets/README.md).
+[`observatory/assets/`](observatory/assets/) — currently **15 PNG files**
+(backgrounds, hero, inn scene, parchment panel, behaviour-cycle promo, emblem,
+lantern divider, NPC token frame, the need/affect/sleep/activity/causality icons,
+and a fireflies overlay). At build/export time `inn.observatory.load_assets`
+reads them, **web-optimizes** raster art (downscale + WebP via Pillow,
+best-effort) and **base64-embeds** everything, so both deliverables stay offline
+and a few MB rather than tens. The loader resolves each slot by **stem**, so an
+asset may ship as `.png`, `.svg`, `.webp`, or `.jpg` interchangeably; any missing
+file **falls back to a warm CSS gradient/texture**, so the page is always
+presentable. See [`observatory/assets/README.md`](observatory/assets/README.md).
 
 ## Layout
 

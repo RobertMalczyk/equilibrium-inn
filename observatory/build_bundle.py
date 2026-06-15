@@ -72,34 +72,43 @@ CONTROLS_AND_BOOT = r"""
 const PROFILES=["game_semantic_profile","g0_stability_profile"];
 const PLANS=["impulse","step","control"];
 let PY=null, runLive=null;
+function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
 function buildControls(){
   const c=document.getElementById('controls'); c.style.display='flex';
   c.innerHTML=`<label>profile <select id="c_profile">${PROFILES.map(p=>`<option>${p}</option>`).join('')}</select></label>
     <label>protocol <select id="c_plan">${PLANS.map(p=>`<option>${p}</option>`).join('')}</select></label>
     <label>seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
-    <button id="c_run">Run simulation</button>
+    <button id="c_run" disabled>Run simulation</button>
     <span id="c_status" class="sub">booting Pyodide…</span>`;
-  document.getElementById('c_run').onclick=()=>{
-    if(!runLive)return;
-    const s=document.getElementById('c_status'); s.textContent='simulating…';
-    setTimeout(()=>{runLive(document.getElementById('c_profile').value,
+  document.getElementById('c_run').onclick=()=>doRun();
+}
+async function doRun(){
+  if(!runLive){setStatus('still booting…');return;}
+  setStatus('simulating… (a few seconds)');
+  await new Promise(r=>setTimeout(r,30));   // let the status paint first
+  try{
+    await runLive(document.getElementById('c_profile').value,
       document.getElementById('c_plan').value,
       parseInt(document.getElementById('c_seed').value||'7',10));
-      s.textContent='live · Pyodide';},20);
-  };
+    setStatus('live · Pyodide');
+  }catch(e){console.error(e); setStatus('run failed: '+e);}
 }
 async function boot(){
   buildControls();
-  PY=await loadPyodide({indexURL:"__PYODIDE__"});
-  await PY.loadPackage("micropip");
-  await PY.runPythonAsync(`
+  try{
+    PY=await loadPyodide({indexURL:"__PYODIDE__"});
+    setStatus('installing packages…');
+    await PY.loadPackage(["micropip","numpy"]);  // engine.stability needs numpy
+    setStatus('loading the inn…');
+    await PY.runPythonAsync(`
 import micropip
 await micropip.install("pyyaml")
 from pyodide.http import pyfetch
-import pyodide, sys, json
+import io, os, sys, json, zipfile
 resp = await pyfetch("inn_bundle.zip")
-pyodide.unpackArchive(await resp.bytes(), "zip")
-if "." not in sys.path: sys.path.insert(0, ".")
+zipfile.ZipFile(io.BytesIO(await resp.bytes())).extractall(".")
+root = os.getcwd()
+if root not in sys.path: sys.path.insert(0, root)
 from inn.config import load_inn_config
 from inn.loop import InnLoop
 from inn.engine_surface import believable_day_layout
@@ -118,9 +127,11 @@ def run_live(profile, plan, seed):
     js.window.MODEL = js.JSON.parse(json.dumps(model))
     js.init()
 `);
-  runLive=(p,pl,sd)=>PY.globals.get("run_live")(p,pl,sd);
-  document.getElementById('c_status').textContent='ready — press Run';
-  runLive("game_semantic_profile","impulse",7);
+    runLive=(p,pl,sd)=>PY.globals.get("run_live")(p,pl,sd);
+    const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
+    setStatus('ready — running first simulation…');
+    await doRun();
+  }catch(e){console.error(e); setStatus('boot failed: '+e+' (see console)');}
 }
 boot();
 </script>

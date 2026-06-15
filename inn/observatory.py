@@ -128,7 +128,7 @@ STYLE = """
   --parchment:#f3e9d2; --ink:#3a2f24; --muted:#7c6f5d; --line:#d8c9a8;
   --panel:#fbf4e3; --shadow:0 2px 6px rgba(90,66,30,.16);
   --idle:#c9b48f; --seeking:#d99a2b; --busy:#7c9e5e; --cooldown:#bd8a5a;
-  --sleep:#6a79a6; --incident:#b5532e; --need:#caa24b; --affect:#b5683e; --sleepf:#6a79a6;
+  --sleep:#4655bf; --incident:#b5532e; --need:#caa24b; --affect:#b5683e; --sleepf:#4655bf;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:auto}
@@ -285,9 +285,9 @@ BODY = """
 """
 
 SCRIPT = r"""
-const MODE_COLOR={idle:'#c9b48f',seeking:'#d99a2b',busy:'#7c9e5e',cooldown:'#bd8a5a',sleep:'#6a79a6'};
+const MODE_COLOR={idle:'#c9b48f',seeking:'#d99a2b',busy:'#7c9e5e',cooldown:'#bd8a5a',sleep:'#4655bf'};
 const MOOD_COLOR={calm:'#8fae6e',focused:'#7c9e5e',bored:'#d9c24a',tired:'#bd8a5a',
-  irritated:'#b5532e',resting:'#9aa6c4',sleeping:'#6a79a6'};
+  irritated:'#b5532e',resting:'#7d8bd6',sleeping:'#4655bf'};
 const STATE_ICON={boredom:'icon_boredom.svg',fatigue:'icon_fatigue.svg',
   stress:'icon_stress.svg',sleep_pressure:'icon_sleep.svg'};
 const A=(window.ASSETS||{});
@@ -352,8 +352,10 @@ function buildRibbons(){const n=MODEL.ticks.length, w=Math.min(880,Math.max(320,
   document.querySelectorAll('#ribbons canvas[data-p]').forEach(cv=>{
     const p=cv.dataset.p, ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
     for(let i=0;i<n;i++){const m=MODEL.ticks[i].personas[p].mode;
-      ctx.fillStyle=MODEL.ticks[i].night?'#e6dcc2':(MODE_COLOR[m]||'#ccc');
-      ctx.fillRect(i/n*W,0,Math.ceil(W/n)+0.6,H);}
+      ctx.fillStyle=MODE_COLOR[m]||'#ccc';                 // paint the mode, incl. SLEEP
+      ctx.fillRect(i/n*W,0,Math.ceil(W/n)+0.6,H);
+      if(MODEL.ticks[i].night){ctx.fillStyle='rgba(40,30,60,.10)'; // faint night veil over the colour
+        ctx.fillRect(i/n*W,0,Math.ceil(W/n)+0.6,H);}}
     ctx.fillStyle='#b5532e';
     MODEL.incidents.forEach(inc=>{const i=tickIndex(inc.t);if(i>=0)ctx.fillRect(i/n*W,0,2,H);});});
   drawPlayhead();}
