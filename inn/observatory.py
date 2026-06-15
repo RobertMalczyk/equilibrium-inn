@@ -220,6 +220,9 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .ev.react{color:#9a4a26}               /* output: an NPC reaction */
 .ev.inc{color:var(--incident);font-weight:600} /* output: an incident (outburst) */
 .ev.amb{font-style:italic;color:#6b5836}        /* behaviour: mode transition */
+.ev.hl{background:rgba(181,83,46,.13);border-left:3px solid var(--incident);
+  padding-left:7px;border-radius:0 5px 5px 0;font-weight:600}
+.ev.hl .tt{color:var(--incident)}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -255,6 +258,7 @@ BODY = """
     <span class="phase" id="weather" style="display:none">rain</span>
     <span class="grow"></span>
     <button id="play">▶ play</button>
+    <button id="hltoggle">⚑ Highlight insults</button>
     <button id="devtoggle">Developer view</button>
   </div>
   <div class="bar" id="controls" style="display:none"></div>
@@ -296,7 +300,7 @@ const MOOD_COLOR={calm:'#8fae6e',focused:'#7c9e5e',bored:'#d9c24a',tired:'#bd8a5
 const STATE_ICON={boredom:'icon_boredom.svg',fatigue:'icon_fatigue.svg',
   stress:'icon_stress.svg',sleep_pressure:'icon_sleep.svg'};
 const A=(window.ASSETS||{});
-let frame=0, dev=false, playing=false, timer=null, selected=null;
+let frame=0, dev=false, playing=false, timer=null, selected=null, hilite=true;
 const $=id=>document.getElementById(id);
 function asset(n){return A[n]||null;}
 function img(n,cls){const u=asset(n);return u?`<img class="${cls||''}" src="${u}" alt="">`:'';}
@@ -376,10 +380,10 @@ function tickIndex(t){let best=-1;for(let i=0;i<MODEL.ticks.length;i++){if(MODEL
 
 function renderStream(){const cur=MODEL.ticks[frame].t; const items=[];
   (MODEL.inputs||[]).forEach(i=>items.push({t:i.t,clock:i.clock,
-    cls:i.custom?'cust':'inp',
+    cls:i.custom?'cust':'inp', insult:i.type==='insult',
     txt:(i.custom?'You':nm(i.source))+' '+fmt(i.type)+(i.custom?' — your action':' — input')}));
   (MODEL.reactions||[]).forEach(r=>items.push({t:r.t,clock:r.clock,
-    cls:r.action==='outburst'?'inc':'react',
+    cls:r.action==='outburst'?'inc':'react', insult:r.as==='insult',
     txt:nm(r.actor)+' '+fmt(r.as)+(r.target&&r.target!==r.actor?' → '+nm(r.target):'')+' — reaction'}));
   MODEL.transitions.filter(x=>['SEEKING','BUSY','SLEEP'].includes(x.new)&&x.driver).forEach(x=>
     items.push({t:x.t,clock:x.clock,cls:'amb',
@@ -388,7 +392,7 @@ function renderStream(){const cur=MODEL.ticks[frame].t; const items=[];
   // log fills in as you scrub/play instead of dumping the whole run at once.
   const shown=items.filter(it=>it.t<=cur).sort((a,b)=>a.t-b.t);
   const box=$('stream');
-  box.innerHTML=shown.map(it=>`<div class="ev ${it.cls}">`
+  box.innerHTML=shown.map(it=>`<div class="ev ${it.cls}${hilite&&it.insult?' hl':''}">`
       +`<span class="tt">${it.clock}</span><span>${it.txt}</span></div>`).join('')
     ||'<div class="ev amb">quiet so far…</div>';
   // Keep newest in view by scrolling the CONTAINER ONLY (never the page). render()
@@ -432,6 +436,8 @@ function init(){
   sc.oninput=()=>{frame=+sc.value;render();};
   $('devtoggle').onclick=e=>{dev=!dev;e.target.classList.toggle('on',dev);
     e.target.textContent=dev?'Observer view':'Developer view';renderCards();};
+  const hb=$('hltoggle'); hb.classList.toggle('on',hilite);
+  hb.onclick=e=>{hilite=!hilite;e.target.classList.toggle('on',hilite);renderStream();};
   $('play').onclick=e=>{playing=!playing;e.target.classList.toggle('on',playing);
     e.target.textContent=playing?'❚❚ pause':'▶ play';
     if(playing)timer=setInterval(step,90);else clearInterval(timer);};
