@@ -143,11 +143,11 @@ python -m http.server 8000 -d observatory     # serve (fetch needs http)
 
 The cockpit bundles the inn + the **pinned engine** read-only (a `.engine_commit`
 sentinel is written into the *bundle copy* only — the engine checkout is never
-modified). The page's visuals are fully embedded (no other network use).
+modified). Its visuals are fully embedded; the only network use is the **Pyodide
+runtime**, which loads from the official CDN by default.
 
-**Offline runtime (optional).** The **Pyodide runtime** loads from its official
-CDN by default. For a fully-offline cockpit, fetch it locally (it is **not**
-committed to git):
+**Offline runtime (optional).** For a fully-offline cockpit, fetch the Pyodide
+runtime locally (it is **not** committed to git):
 
 ```bash
 python observatory/fetch_pyodide.py     # downloads Pyodide v0.26.2 -> observatory/pyodide/
