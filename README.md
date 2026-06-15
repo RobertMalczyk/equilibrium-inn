@@ -18,9 +18,11 @@ traceable texture. A constant brawl is a failure; a dead inn is a failure.
 > An **early-stage research instrument**, not a finished product or a playable
 > game. Milestones **M-A** (instrument + G0 stability), **M-B** (G1 audit
 > follow-through, Social Event Mapper Pack, two-profile split), **M-C**
-> (interactive CLI stepper), and **M-D** (Observation Mode + the Living Inn
-> Observatory) are complete; **G0** has passed and **G1 semantics are signed
-> off**. Quantitative choices remain provisional. See the per-milestone logs in
+> (interactive CLI stepper), **M-D** (Observation Mode + the Living Inn
+> Observatory), **M-E** (baseline cast + regression harness), **M-F** (parity
+> button + GitHub Pages), **M-G** (Controlled Subject / Intervention Mode), and
+> **M-H** (optional LLM semantic input seam) are complete; **G0/G1/G2** have all
+> passed. Quantitative choices remain provisional. See the per-milestone logs in
 > [`registers/`](registers/).
 
 ## What works today
@@ -35,7 +37,10 @@ traceable texture. A constant brawl is a failure; a dead inn is a failure.
   inference), threshold crossings, deterministic ambient summaries, per-persona
   daily summaries, generalized causal `why`, validation reports, and the
   `build_model` the UI renders. The CLI and the Observatory both consume it; the
-  UI never re-derives behaviour. **Reads only the trace; no LLM anywhere.**
+  UI never re-derives behaviour. **Reads only the trace.** No LLM is used in the
+  simulation loop or in autonomous behaviour; the optional M-H seam (below) can
+  map *observer* free text into a validated intervention candidate, but it is
+  disabled by default and never required.
 - **CLI Observation Mode** (`inn/cli.py`): a turn-based observer over the trace.
   Quiet stretches read as deterministic ambient prose, not "(N quiet ticks
   pass.)". Lenses: `observe`, `report`, `plot`, generalized `why`.
@@ -43,6 +48,22 @@ traceable texture. A constant brawl is a failure; a dead inn is a failure.
   SVG/Canvas page with an embedded visual asset pack (no CDN), shipped two ways —
   a **self-contained HTML export** of any run and a **Pyodide live cockpit** that
   runs the inn in-browser.
+- **Controlled Subject / Intervention Mode** (`inn/intervention.py`, M-G): the
+  observer can take manual control of **one** existing cast member. The subject
+  stays a normal NPC — the engine still ticks it and computes its full interior
+  (boredom/fatigue/anger/relations/potentials); the observer overrides only the
+  **outward action**, routed through the **normal world/transducer/probe path** so
+  the rest of the cast perceives and reacts. The trace records both
+  `engine_would_have_selected` and `user_selected_action`. No engine state is ever
+  mutated; the `intervention` record is emitted only when a subject is controlled,
+  so autonomous runs stay byte-identical. Still **not a game**: no quests, goals,
+  score, inventory, progression, or combat.
+- **Optional LLM semantic input seam** (`inn/llm_seam.py`, M-H): **disabled by
+  default**, enabled only via env vars. It maps observer *free text* into a
+  *structured intervention candidate*, requires strict schema validation and an
+  explicit `confirm`, then executes through the **exact M-G path**. It never sits
+  in the engine loop, never mutates engine state, and never stores API keys in the
+  trace, session log, or any output.
 - **G0 stability experiment** and a suite of **validation reports**
   (`experiments/report_*.py`) answering the core questions: boredom→seeking,
   activity→fatigue, rest/sleep→recovery, scarcity, persona contrast.
@@ -82,13 +103,63 @@ report sleep                # dusk→dawn fast-state recovery
 report scarcity             # seekers denied an activity (starvation)
 report incidents            # incident roster + cascade depth/breadth
 plot <name> boredom fatigue # ASCII sparklines from the trace
-why <name>                  # why their last act happened — routine acts too
+why <name>                  # why their last act happened (manual vs autonomous)
 wait [n] · sleep · mode · look · help · quit
 ```
 
-You may also *perturb* the world (`insult`/`help`/`command`/`serve <name>`) — the
-player is a probe source, not a character. This stays an observatory: there are
-no quests, goals, score, inventory, or progression.
+You may also *perturb* the world as an outside probe
+(`insult`/`help`/`command`/`serve <name>`) — the player is a probe source, not a
+character.
+
+### Controlled Subject / Intervention Mode (M-G)
+
+Take manual control of one existing cast member. The engine keeps computing the
+subject's full internal state; you override only its outward action, and that
+action travels the same world/transducer/probe path an autonomous action would —
+so the rest of the cast reacts normally (one-tick latency). `suggest` shows what
+the engine *would* do; `why` distinguishes a manual override from autonomous
+behaviour.
+
+```
+control welf        # take over Welf (starts in AUTO — you observe)
+manual              # switch to MANUAL — your acts now drive the outward action
+suggest             # what the engine is inclined to do + the legal palette
+act insult halgrim  # a manual action, routed through the normal world path
+why welf            # "MANUAL OVERRIDE … engine would have selected: …"
+release             # hand Welf back to autonomous behaviour
+```
+
+Action palette: `insult`, `help`, `praise`, `serve`, `command`, `complain`,
+`refuse`, `cold`/`cold_reply` (targeted), plus `observe`/`noop` (the subject
+visibly does nothing — you just watch). Targets must be present/reachable with the
+subject; there is no telepathic action. (`rest`/`seek_activity` are intentionally
+**not** offered — there is no clean path to make the engine rest/seek on command
+without mutating its state; that is future work.) This remains an observatory: no
+quests, goals, score, inventory, progression, or combat.
+
+### Optional LLM free-text seam (M-H)
+
+**Off by default.** When enabled via env vars, free text is mapped to a structured
+candidate, schema-validated, and shown for an explicit `confirm` before it runs —
+through the *same* M-G path. The LLM never decides NPC behaviour, never enters the
+engine loop, never mutates state, and its API key is never written to any trace,
+session log, or output.
+
+```bash
+set EQUILIBRIUM_INN_LLM_PROVIDER=openai      # or: anthropic  (Linux/macOS: export)
+set EQUILIBRIUM_INN_LLM_API_KEY=...          # read at call time only; never stored
+# (optional) set EQUILIBRIUM_INN_LLM_MODEL=...
+```
+
+```
+control welf
+manual
+say "tell Halgrim to calm down"   # -> proposed action + target + confidence
+confirm                            # only now does it execute, via the M-G path
+```
+
+With no provider configured, `say`/`llm` print a clear "disabled" message and the
+finite palette above remains fully usable.
 
 ## Baseline cast & regression harness
 
@@ -201,10 +272,12 @@ presentable. See [`observatory/assets/README.md`](observatory/assets/README.md).
 
 ```
 inn/            world layer + observe.py (shared observation) + cli.py + observatory.py
-observatory/    build_bundle.py (Pyodide cockpit) + assets/ (visual pack)
-experiments/    g0_sweep/g0_report/chronicle/harvest, report_*.py, g2_parity
+                + intervention.py (M-G controlled subject) + llm_seam.py (M-H, optional)
+observatory/    build_bundle.py (Pyodide cockpit + intervention console) + assets/
+experiments/    g0_sweep/g0_report/chronicle/harvest, report_*.py, report_intervention, g2_parity
 tests/          unit + determinism/import-contract + golden + observe/reports/observatory
-registers/      m_a..m_d.yaml — running decision/finding logs (read for context)
+                + test_intervention.py (M-G) + test_llm_seam.py (M-H)
+registers/      m_a..m_e + m_g_h.yaml — running decision/finding logs (read for context)
 inn.yaml        the entire inn as data (all behaviour-shaping numbers)
 CLAUDE.md       the binding project contract
 ```

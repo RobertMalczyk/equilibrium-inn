@@ -29,6 +29,10 @@ Known seam (documented, not a bug): the palette is necessarily asymmetric —
 reactive engine-surface actions go via the transduce swap, perceivable input
 events go via subject-sourced probes. Anything that cannot route cleanly through
 one of these two paths is intentionally left out of the palette (future work).
+In particular `rest` and `seek_activity` are NOT offered: making the engine
+actually rest or seek on command would require mutating engine state (forbidden),
+so an observer-driven rest/seek is deferred to an engine-side seam. observe/noop
+remain as honest "the subject does nothing; you watch" actions.
 """
 
 from __future__ import annotations
@@ -64,11 +68,17 @@ class PaletteEntry:
 
 # The finite, safe action palette. Every entry routes ONLY through an existing
 # transducer row or the existing probe path — no invented event types.
+#
+# observe/noop are the only ROUTE_NONE entries, and they mean exactly what they
+# say: the controlled subject emits NOTHING through the world this tick (the
+# observer watches). They are honest no-ops, NOT a way to drive the engine.
+# `rest` and `seek_activity` are deliberately NOT in the palette: there is no
+# clean world/transducer path that makes the engine rest or seek on command, and
+# we will not mutate engine state to fake one. Driving rest/seeking from the
+# observer is future work (it needs an engine-side seam) — see the module note.
 ACTION_PALETTE: dict[str, PaletteEntry] = {
     "observe": PaletteEntry("observe", ROUTE_NONE, None, None, 0.0, False, False),
     "noop":    PaletteEntry("noop", ROUTE_NONE, None, None, 0.0, False, False),
-    "seek_activity": PaletteEntry("seek_activity", ROUTE_NONE, None, None, 0.0, False, False),
-    "rest":    PaletteEntry("rest", ROUTE_NONE, None, None, 0.0, False, False),
     # transduce route (engine action -> transducer row)
     "insult":  PaletteEntry("insult", ROUTE_TRANSDUCE, "outburst", None, 0.8, True, True),
     "help":    PaletteEntry("help", ROUTE_TRANSDUCE, "cooperate", None, 0.8, False, True),
