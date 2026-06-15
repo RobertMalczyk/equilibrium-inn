@@ -90,6 +90,23 @@ You may also *perturb* the world (`insult`/`help`/`command`/`serve <name>`) — 
 player is a probe source, not a character. This stays an observatory: there are
 no quests, goals, score, inventory, or progression.
 
+## Baseline cast & regression harness
+
+A deliberately **fair control** — the industry-standard NPC (schedule automaton +
+trigger→bark table) — runs side-by-side with the engine on the *same* schedule,
+world layer, and probes, so the comparison isolates the brain. It reuses the world
+layer unchanged and emits the same trace schema, so every metric reads it.
+
+```bash
+python -m experiments.baseline_compare   # engine vs baseline metrics (Markdown)
+python -m experiments.regression         # canonical protocols vs the frozen golden
+python -m experiments.regression --freeze  # re-baseline the regression golden (ritual)
+```
+
+The regression harness freezes a compact metric fingerprint per canonical protocol
+(impulse/step/control) at `tests/golden/regression_metrics.json`; `tests/test_regression.py`
+asserts it. Baseline tunables live in `inn.yaml`'s `baseline` block.
+
 ## Generate validation reports
 
 Each reads a trace (running one seeded session if absent) and writes Markdown to
@@ -126,8 +143,10 @@ python -m http.server 8000 -d observatory     # serve (fetch needs http)
 
 The cockpit bundles the inn + the **pinned engine** read-only (a `.engine_commit`
 sentinel is written into the *bundle copy* only — the engine checkout is never
-modified). The Pyodide runtime itself loads from its official CDN; the page's
-visuals are fully embedded (no other network use).
+modified). The page's visuals are fully embedded (no other network use). The
+**Pyodide runtime** loads from its official CDN by default; for a fully-offline
+cockpit, drop the Pyodide v0.26.2 *full* distribution into `observatory/pyodide/`
+and rebuild — `build_bundle.py` will use the local copy instead of the CDN.
 
 **G2 parity** — `python -m experiments.g2_parity` writes the CPython reference
 trace SHA + a static fallback Observatory; the cockpit is confirmed by matching

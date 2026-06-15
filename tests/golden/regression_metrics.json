@@ -1,0 +1,29 @@
+{
+  "impulse": {
+    "incidents": 8,
+    "cascade_max_depth": 3,
+    "cascade_max_breadth": 3,
+    "routine_adherence_mean": 0.9952,
+    "action_entropy_mean": 1.6914,
+    "offers": 52,
+    "contention": 355
+  },
+  "step": {
+    "incidents": 0,
+    "cascade_max_depth": 0,
+    "cascade_max_breadth": 0,
+    "routine_adherence_mean": 0.9954,
+    "action_entropy_mean": 1.71,
+    "offers": 45,
+    "contention": 351
+  },
+  "control": {
+    "incidents": 0,
+    "cascade_max_depth": 0,
+    "cascade_max_breadth": 0,
+    "routine_adherence_mean": 0.9955,
+    "action_entropy_mean": 1.6649,
+    "offers": 51,
+    "contention": 350
+  }
+}

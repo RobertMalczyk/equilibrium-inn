@@ -14,6 +14,8 @@ observatory/_stage/
 observatory/_g2_ref/
 observatory/_run_impulse/
 observatory/_obs_demo/
+observatory/run_fresh.html
+observatory/pyodide/
 
 # Source copy of the art pack (the working set lives in observatory/assets/).
 Pictures/

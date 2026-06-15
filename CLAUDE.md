@@ -340,9 +340,16 @@ count, `help <name>`/sleep/target-presence fixes); `experiments/report_*.py`; th
 (`python -m inn.observatory <trace_dir> -o run.html`) AND a Pyodide live cockpit
 (`observatory/build_bundle.py`); `experiments/g2_parity.py` (reference + static fallback).
 Observability/reporting only — zero dynamics changes; golden + import contract intact. See
-`registers/m_d.yaml`]**. M-E baseline cast + regression harness + canonical
-protocols frozen. M-F (optional, post-G2) public extraction, fully self-hosted Pyodide
-cockpit, equilibrium-engine.dev page.
+`registers/m_d.yaml`]**. M-E baseline cast + regression harness **[DONE: `inn/baseline.py`
+— a fair schedule-automaton + trigger→bark control reusing the world layer, emitting the
+same trace schema (engine vs baseline litmus: cascades/priming/variety vs a flat single
+bark); `experiments/regression.py` freezes the canonical protocols' metric fingerprints
+(`tests/golden/regression_metrics.json`, `--freeze` to re-baseline); `experiments/
+baseline_compare.py`; tunables in `inn.yaml` `baseline`. See `registers/m_e.yaml`]**.
+M-F (optional, post-G2) public extraction, fully self-hosted Pyodide cockpit,
+equilibrium-engine.dev page **[PARTIAL: the cockpit now uses a local Pyodide runtime when
+`observatory/pyodide/` is present (else CDN); the runtime is not vendored, and the public
+.dev page is infra-gated — deferred]**.
 
 Per-milestone register: keep a `registers/` YAML log (state, decisions, findings,
 open questions) in the project's usual style; update it at every AUDIT.

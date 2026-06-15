@@ -318,6 +318,25 @@ observation:
     anger: 0.50
     sleep_pressure: 0.70
 
+# Baseline cast (CLAUDE.md §7, M-E): the deliberately-FAIR control NPC's tunables
+# — a schedule automaton + trigger->bark table, run side-by-side with the engine
+# on the SAME schedule/world/probes so the comparison isolates the brain. These
+# shape the BASELINE's behaviour only (never the engine path), but live here as
+# data per hard rule 3 so they are auditable. inn/baseline.py reads them.
+baseline:
+  anger_gain: 0.6          # anger += gain * intensity when an insult is received
+  bark_threshold: 0.45     # an outburst (bark) fires once anger crosses this
+  bark_score: 0.8          # transduced selection score for a bark
+  cooldown_ticks: 15       # ticks between barks (mirrors the engine outburst cooldown)
+  vent: 0.5                # anger discharged by a bark
+  boredom_rise: 0.010      # boredom drift per idle waking tick
+  boredom_relief: 0.020    # boredom relief per busy tick
+  fatigue_rise: 0.012      # fatigue per busy tick
+  fatigue_relief_idle: 0.004
+  hunger_rise: 0.006
+  night_recover: 0.05      # fast-state recovery per night tick (sleep reset)
+  sleep_pressure_rise: 0.004
+
 g0:
   seed: 7
   sweep:

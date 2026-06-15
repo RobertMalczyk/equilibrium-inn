@@ -154,6 +154,7 @@ class InnConfig:
     profiles: dict[str, ProfileSpec]
     default_profile: str | None
     observation: dict
+    baseline: dict
     yaml_sha256: str
 
     def resolved_engine_overrides(self, profile: str | None) -> dict:
@@ -201,7 +202,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
                       "meals", "activities", "transducer", "witnessing",
                       "world", "world_states", "contention", "inbox_policy",
                       "probes", "g0", "engine_overrides", "profiles",
-                      "burst_overlay", "observation"}, "inn.yaml")
+                      "burst_overlay", "observation", "baseline"}, "inn.yaml")
 
     meta = doc["meta"]
     if meta["engine_commit"] != PINNED_COMMIT:
@@ -361,6 +362,11 @@ def load_inn_config(path: str | Path) -> InnConfig:
         if state not in GLOBAL_STATES:
             raise ValueError(f"observation.high: {state!r} is not a global state")
 
+    # Baseline cast (CLAUDE.md M-E): the fair control NPC's automaton/bark
+    # tunables. Behaviour-shaping numbers live here as data (hard rule 0.3), not
+    # in inn/baseline.py. Read only by the baseline loop; never by the engine path.
+    baseline = dict(doc.get("baseline") or {})
+
     sources = tuple(doc["event_sources"])
     probes = {name: tuple(_parse_probe(p) for p in plist)
               for name, plist in doc["probes"].items()}
@@ -399,5 +405,6 @@ def load_inn_config(path: str | Path) -> InnConfig:
         profiles=profiles,
         default_profile=default_profile,
         observation=observation,
+        baseline=baseline,
         yaml_sha256=hashlib.sha256(raw_bytes).hexdigest(),
     )
