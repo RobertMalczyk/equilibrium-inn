@@ -384,15 +384,16 @@ function renderStream(){const cur=MODEL.ticks[frame].t; const items=[];
   MODEL.transitions.filter(x=>['SEEKING','BUSY','SLEEP'].includes(x.new)&&x.driver).forEach(x=>
     items.push({t:x.t,clock:x.clock,cls:'amb',
       txt:nm(x.pid)+' '+x.prev.toLowerCase()+'→'+x.new.toLowerCase()+(x.driver?' ('+x.driver+' '+x.driver_value+')':'')}));
-  items.sort((a,b)=>a.t-b.t);
+  // A LIVE feed: show only what has happened up to the current playhead, so the
+  // log fills in as you scrub/play instead of dumping the whole run at once.
+  const shown=items.filter(it=>it.t<=cur).sort((a,b)=>a.t-b.t);
   const box=$('stream');
-  box.innerHTML=items.map(it=>`<div class="ev ${it.cls}" data-t="${it.t}" style="opacity:${it.t<=cur?1:.3}">
-      <span class="tt">${it.clock}</span><span>${it.txt}</span></div>`).join('')||'<div class="ev">quiet…</div>';
-  // Auto-scroll the STREAM CONTAINER ONLY (never the page) — and only while
-  // playing, so manual scroll-back is not fought. Fixes the page-jump bug.
-  if(playing){const evs=[...box.querySelectorAll('.ev')];
-    let last=null; evs.forEach(e=>{if(parseFloat(e.style.opacity)===1)last=e;});
-    if(last)box.scrollTop=last.offsetTop-box.clientHeight+last.offsetHeight+8;}}
+  box.innerHTML=shown.map(it=>`<div class="ev ${it.cls}">`
+      +`<span class="tt">${it.clock}</span><span>${it.txt}</span></div>`).join('')
+    ||'<div class="ev amb">quiet so far…</div>';
+  // Keep newest in view by scrolling the CONTAINER ONLY (never the page). render()
+  // only runs on a frame change, so a paused user can still scroll back freely.
+  box.scrollTop=box.scrollHeight;}
 
 function renderMetrics(){const m=MODEL.metrics;
   const cells=[['incidents',m.incidents,'icon_stress.svg'],['cascade depth',m.cascade_max_depth,'icon_causality.svg'],
