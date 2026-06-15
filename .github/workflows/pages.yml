@@ -26,15 +26,24 @@ jobs:
       - name: Checkout inn
         uses: actions/checkout@v4
 
-      - name: Clone the pinned engine (sibling, read-only)
-        run: |
-          git clone --filter=blob:none https://github.com/RobertMalczyk/equilibrium-engine.git
-          git -C equilibrium-engine checkout 0176dbd78ba7b7eaa0cebbbb43392779469547a4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Clone the pinned engine (sibling, read-only)
+        run: |
+          # Derive the pin from inn/engine_surface.py — single source of truth,
+          # no hardcoded SHA in the workflow.
+          PIN=$(python - <<'PY'
+          import re, pathlib
+          t = pathlib.Path("inn/engine_surface.py").read_text()
+          print(re.search(r'PINNED_COMMIT\s*=\s*"([0-9a-f]+)"', t).group(1))
+          PY
+          )
+          echo "engine pin (from inn/engine_surface.py): $PIN"
+          git clone --filter=blob:none https://github.com/RobertMalczyk/equilibrium-engine.git
+          git -C equilibrium-engine checkout "$PIN"
 
       - name: Install dependencies
         run: |

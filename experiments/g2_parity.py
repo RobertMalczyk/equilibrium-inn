@@ -1,15 +1,15 @@
 """G2 parity gate (CLAUDE.md §8): is a fixed session byte-identical between
-CPython and the Pyodide cockpit? This computes the CPython REFERENCE for a fixed
-~1000-tick session (full-trace SHA-256), writes g2_reference.json (consumed by the
-cockpit's one-click "Verify parity" button), and produces the static fallback
-Observatory — the artifact the G2-failure path mandates.
+CPython and the Pyodide cockpit?
 
-How parity is closed: in the cockpit, click "Verify parity" — it runs the SAME
-fixed session in Pyodide and compares its trace SHA-256 to g2_reference.json.
-Equal -> the live cockpit is blessed. Unequal -> the static export stays the
-deterministic fallback. Final closure REQUIRES a real browser run (Pyodide), so
-this CPython-side module only prepares the reference + fallback and the pure
-status logic (tested below).
+This CPython-side module only PREPARES parity: it runs the fixed ~1000-tick
+session, writes the reference SHA-256 to g2_reference.json, and exports the static
+fallback Observatory (the mandated G2-failure path). It also holds the pure status
+model (parity_status, tested below).
+
+Closing the gate is a browser step: in the cockpit, "Verify parity" runs the SAME
+session in Pyodide and compares its SHA-256 to g2_reference.json — equal blesses
+live mode, unequal keeps the static export as the deterministic fallback. G2 is
+closed only after that in-browser pass.
 
   python -m experiments.g2_parity
 """
