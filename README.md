@@ -3,119 +3,160 @@
 A small **living-world instrument** built on
 [equilibrium-engine](https://github.com/RobertMalczyk/equilibrium-engine): a
 roadside inn of 7 characters, simulated over 3 in-world days and measured at the
-*society* level. The point is not a game — it is an instrument for studying how
-the engine's individual character dynamics behave when they are **coupled**, and
-for converting what we learn into the next engine iteration.
+*society* level. The point is **not a game** — it is an **observation and
+validation cockpit** for the engine: a way to see whether coupled NPCs get bored,
+seek activities, grow busy, tire, rest, sleep, recover, retain slower memory, and
+react socially in **bounded, explainable** ways — and to convert what we learn
+into the next engine iteration.
 
 The unit of value is the **incident**: a rare, explainable, remembered deviation
 from routine. A good run is a mostly-boring inn with occasional, causally
 traceable texture. A constant brawl is a failure; a dead inn is a failure.
-Quantifying that corridor is the instrument's first job.
 
 > ## ⚠️ Work in progress
 >
-> This is an **early-stage research instrument**, not a finished product or a
-> playable game. The design is **unverified** — every quantitative choice is
-> provisional. Milestone **M-A** (the instrument + the G0 stability experiment)
-> is complete and the **G0 gate has passed**; the project is currently paused at
-> the **G1 audit** (semantics review). Expect rough edges, churn, and parameters
-> that may change wholesale after the audit. See **[Current status & open
-> issues](#current-status--open-issues)** below.
+> An **early-stage research instrument**, not a finished product or a playable
+> game. Milestones **M-A** (instrument + G0 stability), **M-B** (G1 audit
+> follow-through, Social Event Mapper Pack, two-profile split), **M-C**
+> (interactive CLI stepper), and **M-D** (Observation Mode + the Living Inn
+> Observatory) are complete; **G0** has passed and **G1 semantics are signed
+> off**. Quantitative choices remain provisional. See the per-milestone logs in
+> [`registers/`](registers/).
 
 ## What works today
 
-- The full world layer: schedule compiler, room presence + witnessing, the
-  action→event transducer with provenance, the activity economy, the
-  three-phase synchronous tick loop, deterministic session logging, and the
-  complete society trace.
-- A deterministic, replayable simulation — a 7-persona, 3-day run takes ~5 s and
-  is reproducible to a golden SHA-256.
-- The **G0 stability experiment**: a parameter sweep (transducer intensity ×
-  recovery × catalog richness) over impulse / step / control protocols, a
-  formal linearized-stability check, and a generated report.
-- A prose **chronicle** renderer with per-incident "why-chains" (the text form
-  of the planned CLI's `why <name>`).
+- **The full world layer:** schedule compiler, room presence + witnessing, the
+  action→event transducer with provenance, the activity economy, the three-phase
+  synchronous tick loop, deterministic session logging, and the complete society
+  trace. A 7-persona, 3-day run takes ~5 s and is reproducible to a golden
+  SHA-256.
+- **The shared observation layer** (`inn/observe.py`): the single source of
+  behavioural derivations — mood/mode labels, mode transitions (with driver
+  inference), threshold crossings, deterministic ambient summaries, per-persona
+  daily summaries, generalized causal `why`, validation reports, and the
+  `build_model` the UI renders. The CLI and the Observatory both consume it; the
+  UI never re-derives behaviour. **Reads only the trace; no LLM anywhere.**
+- **CLI Observation Mode** (`inn/cli.py`): a turn-based observer over the trace.
+  Quiet stretches read as deterministic ambient prose, not "(N quiet ticks
+  pass.)". Lenses: `observe`, `report`, `plot`, generalized `why`.
+- **The Living Inn Observatory** (`inn/observatory.py`): a warm, hand-rolled
+  SVG/Canvas page with an embedded visual asset pack (no CDN), shipped two ways —
+  a **self-contained HTML export** of any run and a **Pyodide live cockpit** that
+  runs the inn in-browser.
+- **G0 stability experiment** and a suite of **validation reports**
+  (`experiments/report_*.py`) answering the core questions: boredom→seeking,
+  activity→fatigue, rest/sleep→recovery, scarcity, persona contrast.
 
-## Current status & open issues
-
-G0 passed: across all 30 swept cells the inn **settles** (none saturate, none
-limit-cycle), the canonical run sits **in the 4–10 incident corridor**, and the
-control protocol is silent. Getting there required substantial damping work
-(full account in [`registers/m_a.yaml`](registers/m_a.yaml) and
-[`CHANGELOG.md`](CHANGELOG.md)).
-
-**Open issues / decisions awaiting the G1 audit** — these parameters tamed the
-inn but are **not yet blessed as legitimate world-design**:
-
-1. **Scarcity fork (the big one).** The committed "hearth fallback" hardened a
-   thin-catalog runaway but, as tuned, makes the inn *scarcity-immune* (thin ≈
-   normal ≈ rich). The alternative (frustration-only idle recovery) preserves a
-   thin>rich gradient but recenters the corridor. The instrument's character
-   hinges on this choice.
-2. **Idle recovery disabled inn-wide** — reverses an engine homeostasis fix in
-   this context; the corridor depends on it.
-3. **Outburst vents anger (−0.50)** — the single load-bearing damping change,
-   but it is inn-authored; the engine's calibration does not own it.
-4. **`reactive_window_ticks = 1`** — adopted from the engine's burst eval, not
-   from calibrated defaults.
-5. **Root-vs-hop witnessing asymmetry** (0.5 vs 0.15) — new world semantics.
-
-**Known declared gap (by design, not a bug):** the transducer cannot perceive
-`refuse` / `cold_response` / `complain` — the authority loop closes one way
-only. This ships stated and is the flagship candidate for the first engine spec
-extension.
-
-**Other notes:** the formal stability analysis is a *piecewise* linearization
-and is regime-local; the empirical sweep is authoritative. Several modules
-(CLI stepper, viewer, baseline cast, regression harness) are planned but not
-built (milestones M-C..M-F).
-
-## Setup
-
-The inn consumes the engine **only** through a pinned commit, via a single seam
-module (`inn/engine_surface.py`). The engine is a separate repo and is **not**
-vendored here. Clone it as a sibling directory inside this repo:
+## Quick start
 
 ```bash
 git clone https://github.com/RobertMalczyk/equilibrium-inn
 cd equilibrium-inn
 git clone https://github.com/RobertMalczyk/equilibrium-engine
-# the seam pins commit 3dcf4a3 — check it out if main has moved on:
-#   git -C equilibrium-engine checkout 3dcf4a3
+# the seam pins commit 0176dbd — check it out if main has moved on:
+#   git -C equilibrium-engine checkout 0176dbd
 python -m pip install -e ".[dev]"
+python -m pytest tests -q          # full suite incl. the golden session
 ```
 
-The engine's `eval/` package is not pip-installable, so the seam puts the engine
-checkout on `sys.path` and asserts the pinned commit at import. To bump the pin,
-edit `PINNED_COMMIT` in `inn/engine_surface.py` and `meta.engine_commit` in
-`inn.yaml`, then regenerate the golden trace.
+The inn consumes the engine **only** through a pinned commit, via a single seam
+module (`inn/engine_surface.py`); the engine is a separate repo, **not** vendored
+here. To bump the pin, edit `PINNED_COMMIT` in `inn/engine_surface.py` and
+`meta.engine_commit` in `inn.yaml`, then regenerate the golden trace.
 
-## Running
+## Observe the inn (CLI)
 
 ```bash
-python -m pytest tests -q                 # 31 tests incl. the golden session
-python -m experiments.g0_sweep            # the G0 parameter sweep
-python -m experiments.g0_formal           # linearized-stability analysis
-python -m experiments.g0_report           # build the report + chronicle
-python -m experiments.chronicle           # prose chronicle of the canonical run
-python -m experiments.regen_golden        # deliberately re-baseline the golden
+python -m inn.cli                  # turn-based observer (Observation Mode on)
 ```
 
-Outputs land in `experiments/out/` (gitignored). The report is written to
-`experiments/out/g0/g0_report.md`.
+Inside, the observation verbs (all derived from `inn.observe`):
+
+```
+observe all                 # one-line mood/mode/room per NPC
+observe <name>              # full state card: mood, mode, activity, need gauges
+report day [N]              # per-persona time budget (busy/idle/seek/rest/sleep)
+report npc <name>           # a persona across days + current card
+report activity             # offers granted / contended / success
+report sleep                # dusk→dawn fast-state recovery
+report scarcity             # seekers denied an activity (starvation)
+report incidents            # incident roster + cascade depth/breadth
+plot <name> boredom fatigue # ASCII sparklines from the trace
+why <name>                  # why their last act happened — routine acts too
+wait [n] · sleep · mode · look · help · quit
+```
+
+You may also *perturb* the world (`insult`/`help`/`command`/`serve <name>`) — the
+player is a probe source, not a character. This stays an observatory: there are
+no quests, goals, score, inventory, or progression.
+
+## Generate validation reports
+
+Each reads a trace (running one seeded session if absent) and writes Markdown to
+`experiments/out/g0/reports/`:
+
+```bash
+python -m experiments.report_boredom_activity     # boredom → seeking → activity
+python -m experiments.report_activity_fatigue     # activity/busy → fatigue
+python -m experiments.report_rest_sleep_recovery  # rest/sleep → recovery
+python -m experiments.report_scarcity             # thin / normal / rich catalog
+python -m experiments.report_persona_contrast     # personas under one environment
+```
+
+## Build / export the Observatory
+
+**Self-contained HTML export** (offline, shareable; no server, no Pyodide):
+
+```bash
+# produce a run, then export it to one standalone .html
+python -c "from inn.config import load_inn_config; from inn.session import run_session; \
+run_session(load_inn_config('inn.yaml'),'impulse','observatory/_run_impulse')"
+python -m inn.observatory observatory/_run_impulse -o observatory/run.html --stride 2
+# open observatory/run.html in any browser
+```
+
+**Pyodide live cockpit** (runs the inn in-browser; profile/protocol/seed
+controls):
+
+```bash
+python observatory/build_bundle.py            # builds inn_bundle.zip + index.html
+python -m http.server 8000 -d observatory     # serve (fetch needs http)
+# open http://localhost:8000/
+```
+
+The cockpit bundles the inn + the **pinned engine** read-only (a `.engine_commit`
+sentinel is written into the *bundle copy* only — the engine checkout is never
+modified). The Pyodide runtime itself loads from its official CDN; the page's
+visuals are fully embedded (no other network use).
+
+**G2 parity** — `python -m experiments.g2_parity` writes the CPython reference
+trace SHA + a static fallback Observatory; the cockpit is confirmed by matching
+the same fixed session's SHA in-browser.
+
+### Visual assets
+
+The Observatory's art pack lives in
+[`observatory/assets/`](observatory/assets/) — currently **15 PNG files**
+(backgrounds, hero, inn scene, parchment panel, behaviour-cycle promo, emblem,
+lantern divider, NPC token frame, the need/affect/sleep/activity/causality icons,
+and a fireflies overlay). At build/export time `inn.observatory.load_assets`
+reads them, **web-optimizes** raster art (downscale + WebP via Pillow,
+best-effort) and **base64-embeds** everything, so both deliverables stay offline
+and a few MB rather than tens. The loader resolves each slot by **stem**, so an
+asset may ship as `.png`, `.svg`, `.webp`, or `.jpg` interchangeably; any missing
+file **falls back to a warm CSS gradient/texture**, so the page is always
+presentable. See [`observatory/assets/README.md`](observatory/assets/README.md).
 
 ## Layout
 
 ```
-inn/            world layer (engine_surface, config, schedule, presence,
-                transducer, economy, inbox, world_state, loop, session,
-                trace, metrics)
-experiments/    g0_sweep, g0_formal, g0_report, chronicle, regen_golden
-tests/          unit + determinism/import-contract + golden
-registers/      m_a.yaml — running decision/finding log (read this for context)
-inn.yaml        the entire inn as data (all behavior-shaping numbers)
+inn/            world layer + observe.py (shared observation) + cli.py + observatory.py
+observatory/    build_bundle.py (Pyodide cockpit) + assets/ (visual pack)
+experiments/    g0_sweep/g0_report/chronicle/harvest, report_*.py, g2_parity
+tests/          unit + determinism/import-contract + golden + observe/reports/observatory
+registers/      m_a..m_d.yaml — running decision/finding logs (read for context)
+inn.yaml        the entire inn as data (all behaviour-shaping numbers)
 CLAUDE.md       the binding project contract
-CHANGELOG.md    parameter history, starting point → current
 ```
 
 ## License

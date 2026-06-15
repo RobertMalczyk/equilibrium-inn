@@ -21,11 +21,22 @@ PINNED_COMMIT = "0176dbd78ba7b7eaa0cebbbb43392779469547a4"  # M20.1 burst/outbur
 
 
 def _engine_commit() -> str:
-    out = subprocess.run(
-        ["git", "-C", str(ENGINE_ROOT), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
-    )
-    return out.stdout.strip()
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ENGINE_ROOT), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True,
+        )
+        return out.stdout.strip()
+    except Exception:
+        # No git/subprocess (e.g. the Observatory running under Pyodide-in-WASM):
+        # trust a `.engine_commit` sentinel written into the bundle by
+        # observatory/build_bundle.py from the REAL git rev-parse at bundle time.
+        # The engine checkout itself is never written (hard rule 0.1); only the
+        # bundled copy carries this file.
+        sentinel = ENGINE_ROOT / ".engine_commit"
+        if sentinel.is_file():
+            return sentinel.read_text(encoding="utf-8").strip()
+        raise
 
 
 def verify_pin() -> str:

@@ -153,6 +153,7 @@ class InnConfig:
     burst_overlay: bool
     profiles: dict[str, ProfileSpec]
     default_profile: str | None
+    observation: dict
     yaml_sha256: str
 
     def resolved_engine_overrides(self, profile: str | None) -> dict:
@@ -200,7 +201,7 @@ def load_inn_config(path: str | Path) -> InnConfig:
                       "meals", "activities", "transducer", "witnessing",
                       "world", "world_states", "contention", "inbox_policy",
                       "probes", "g0", "engine_overrides", "profiles",
-                      "burst_overlay"}, "inn.yaml")
+                      "burst_overlay", "observation"}, "inn.yaml")
 
     meta = doc["meta"]
     if meta["engine_commit"] != PINNED_COMMIT:
@@ -350,6 +351,16 @@ def load_inn_config(path: str | Path) -> InnConfig:
     if default_profile is not None and default_profile not in profiles:
         raise ValueError(f"profiles.default {default_profile!r} is not a defined profile")
 
+    # Observation block (CLAUDE.md M-D): DISPLAY-ONLY thresholds for mood labels
+    # and threshold-crossing markers. Read by inn.observe, NEVER by the loop, so
+    # adding/altering it cannot change the trace (golden stays valid). Validated
+    # only enough to catch typos: `high` keys must be real global states.
+    observation = dict(doc.get("observation") or {})
+    _check_keys(observation, {"high"}, "observation")
+    for state in (observation.get("high") or {}):
+        if state not in GLOBAL_STATES:
+            raise ValueError(f"observation.high: {state!r} is not a global state")
+
     sources = tuple(doc["event_sources"])
     probes = {name: tuple(_parse_probe(p) for p in plist)
               for name, plist in doc["probes"].items()}
@@ -387,5 +398,6 @@ def load_inn_config(path: str | Path) -> InnConfig:
         burst_overlay=bool(doc.get("burst_overlay", False)),
         profiles=profiles,
         default_profile=default_profile,
+        observation=observation,
         yaml_sha256=hashlib.sha256(raw_bytes).hexdigest(),
     )

@@ -302,6 +302,22 @@ probes:
        until: "day2 18:00", every_ticks: 15}
   control: []
 
+# Observation layer (CLAUDE.md M-D): DISPLAY-ONLY thresholds for the CLI
+# Observation Mode, the validation reports, and the Living Inn Observatory. These
+# decide when a need/affect channel reads as "high" (mood labels, threshold-
+# crossing markers). They are read by inn.observe ONLY — never by the simulation
+# loop — so tuning them annotates the same run differently and cannot change the
+# trace or its golden hash. Omitting the block falls back to inn.observe defaults.
+observation:
+  high:
+    boredom: 0.60
+    fatigue: 0.70
+    hunger: 0.70
+    stress: 0.60
+    frustration: 0.60
+    anger: 0.50
+    sleep_pressure: 0.70
+
 g0:
   seed: 7
   sweep:

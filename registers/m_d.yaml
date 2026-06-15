@@ -1,0 +1,120 @@
+milestone: M-D (Observation Mode + Living Inn Observatory)
+state: IMPLEMENTED. Observability/instrumentation/reporting only — ZERO dynamics
+  changes (no thresholds/recovery/transducer/economy/traits tuned, CLAUDE.md
+  M-D §9). Quiet ticks are now informative; the boredom->seeking->activity->
+  fatigue->rest/sleep->recovery cycle is visible in the CLI, the reports, and the
+  Observatory. All analysis reads only the society trace (hard rule 0.4). No LLM.
+updated: 2026-06-14
+
+design:
+  spine: >
+    inn/observe.py is the single source of behavioural derivations (mood/mode
+    labels, mode transitions, threshold crossings, ambient summaries, daily
+    summaries, generalized why, validation reports, build_model). The CLI, the
+    experiments/report_*.py scripts, and the Observatory all consume it — none
+    re-derive. Reads trace records (gzipped-JSONL dicts) or an in-memory record
+    list, so it runs identically in CPython and in Pyodide-in-WASM.
+
+done:
+  - id: observe-layer
+    what: >
+      inn/observe.py — pure derivations over the trace: mode_transitions (with
+      driver inference: boredom->seek, fatigue->rest, sleep_pressure->sleep,
+      anger->outburst), threshold_crossings (rising edges vs inn.yaml display
+      thresholds), ambient_summary (deterministic prose for quiet spans),
+      daily_summary, why (generalized to proactive behaviour, not just
+      outbursts), aggregate_metrics, build_model (the ObservationModel the UI
+      renders), and report builders (boredom_activity / activity_fatigue /
+      rest_sleep_recovery).
+  - id: observation-config
+    what: >
+      inn.yaml `observation.high` — DISPLAY-ONLY thresholds (mood labels +
+      crossing markers), read by inn.observe ONLY, never by the loop. Parsed in
+      inn/config.py (validated against GLOBAL_STATES). Adding it does not change
+      the trace; the golden canonical_session hash is unaffected (verified).
+  - id: cli-observation-mode
+    what: >
+      inn/cli.py — Observation Mode (on by default): quiet stretches flush as
+      ambient summaries instead of "(N quiet ticks pass.)" (`mode` toggles).
+      New lens commands: observe <npc>|all (state cards + soft ASCII gauges),
+      report day|npc|sleep|activity|scarcity, plot <npc> <state...> (sparkline),
+      why <npc> now explains routine acts too. Parser/UX fixes: bare `help` is
+      the screen while `help <name>` is the praise verb (collision removed);
+      player verbs validate target presence (forgiving); sleep wording reflects
+      it advances time and recovers fast states.
+  - id: reports
+    what: >
+      experiments/report_lib.py + report_boredom_activity / report_activity_
+      fatigue / report_rest_sleep_recovery / report_scarcity / report_persona_
+      contrast. Trace-only reports read a cached trace (no rerun); scarcity/
+      contrast run their own seeded sessions. Markdown -> experiments/out/g0/reports/.
+  - id: observatory
+    what: >
+      inn/observatory.py — the shared render layer (hand-rolled inline SVG/Canvas/
+      CSS, warm parchment, no CDN/network) + `python -m inn.observatory <trace_dir>
+      -o run.html` self-contained export (SECONDARY deliverable + G2 fallback).
+      observatory/build_bundle.py — the Pyodide cockpit (PRIMARY): bundles the inn
+      + the pinned engine subset + inn.yaml (READ-ONLY on the engine; a
+      `.engine_commit` sentinel written into the BUNDLE copy only) and generates
+      index.html reusing the same STYLE/BODY/SCRIPT, with a Pyodide bootstrap that
+      runs the inn live and builds the model via inn.observe.
+  - id: pin-fallback
+    what: >
+      inn/engine_surface._engine_commit falls back to a `.engine_commit` sentinel
+      when git/subprocess is unavailable (Pyodide-in-WASM). CPython behaviour is
+      unchanged (git path tried first); the engine checkout is never written.
+  - id: g2
+    what: >
+      experiments/g2_parity.py computes the CPython reference SHA-256 for a fixed
+      1000-tick session and emits the static fallback Observatory. Parity is
+      closed by running the same session in the cockpit and comparing SHAs.
+  - id: visual-pass
+    what: >
+      Visual asset pack integrated. observatory/assets/ holds the 15-image pack
+      (warm bg, hero, inn scene, parchment panel, behaviour-cycle promo, emblem,
+      lantern divider, NPC token frame, need/affect/sleep/activity/causality
+      icons, fireflies overlay). inn.observatory.load_assets reads them keyed by
+      stem (so .png fills .svg-named slots), web-optimizes raster art
+      (downscale + WebP via Pillow, best-effort) and base64-embeds it — page drops
+      from ~50 MB to ~4 MB while using all 15. Render layer reworked: hero/emblem,
+      asset-textured cards, scene with token frames + NPC selection, behaviour-
+      cycle section (stage chips + promo), icon-tagged gauges/metrics, and a NEW
+      Why/causality panel sourced from build_model's per-persona `why` (shared
+      layer, no UI re-derivation). Fixed the live-cockpit scroll bug (the event
+      stream auto-scrolled via scrollIntoView, jumping the whole page; now it
+      scrolls only its own container, only while playing). CLI gained
+      `report incidents`. Missing assets fall back to warm CSS gradients.
+  - id: tests
+    what: >
+      tests/test_observe.py, tests/test_reports.py (the §8 behavioural validation
+      suite — idle->boredom, boredom->seeking, activity->fatigue, fatigue->rest,
+      night->recovery, deterministic summaries, ambient summaries don't mutate
+      state, reports build from a trace without rerun), tests/test_observatory.py
+      (asset embed + optimize, page embeds assets, build_model includes `why`),
+      tests/test_cli.py (observation commands incl. report incidents).
+      Full suite green; golden determinism + import contract intact.
+
+findings:
+  - id: F-md-1
+    what: >
+      Night recovers fast states for the cast generally (dusk->dawn fatigue and
+      stress drop materially), BUT under the impulse protocol welf/lutek/branic
+      show a small overnight ANGER RISE (~+0.06) while the directly-insulted
+      Halgrim and others fall. Consistent with grudge carryover/compounding in
+      the common-room crowd around the day-1 20:00 insult. NOT tuned (dynamics
+      frozen this pass); flagged for a future calibration/relation-timescale look.
+  - id: F-md-2
+    what: >
+      Activity success and seeking vary sharply by persona under the same
+      environment (e.g. lutek/branic/welf answer most seeks; halgrim/edda barely
+      seek), surfaced by report_persona_contrast / report_boredom_activity. Trait
+      differences are doing visible work — recorded as expected, not a defect.
+
+deferred:
+  - "G2 parity: compute the in-browser trace SHA and assert equality with
+     g2_reference.json (needs a browser/Pyodide run; reference + fallback ready)."
+  - "Comparative side-by-side panels (two models at once) — the render layer is
+     single-model now; export/cockpit could embed a second model."
+  - "Pyodide runtime is loaded from the official CDN (the visuals are CDN-free);
+     self-hosting the Pyodide distribution for a fully-offline cockpit is future."
+  - "M-E baseline cast + regression harness + frozen canonical protocols."
