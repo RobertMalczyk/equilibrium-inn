@@ -28,7 +28,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 
 import inn.metrics as M
-from inn.chronicle import event_line, who, why_chain
+from inn.chronicle import event_line, observer_action_label, who, why_chain
 from inn.intervention import ACTION_PALETTE
 
 # -- display thresholds (inn.yaml `observation`; defaults if absent) -----------
@@ -53,6 +53,17 @@ MODE_LABEL = {
     "IDLE": "idle", "SEEKING": "seeking", "BUSY": "busy",
     "COOLDOWN": "cooldown", "SLEEP": "sleep",
 }
+
+# Observer-facing phrasing for a mode label. Engine mode IDLE means "awake and
+# unoccupied" — NOT rest/recovery — so the observer view avoids the bare word
+# "idle" (Developer view keeps the raw mode id). MODE_LABEL values double as the
+# Observatory's colour keys, so they stay unchanged; this map is display-only.
+OBSERVER_MODE = {"idle": "unoccupied"}
+
+
+def observer_mode(label: str) -> str:
+    """The observer-facing word for a MODE_LABEL value (idle -> unoccupied)."""
+    return OBSERVER_MODE.get(label, label)
 
 
 def high_thresholds(cfg=None) -> dict[str, float]:
@@ -236,7 +247,7 @@ def _span_clause(records: list[dict], pid: str, high: dict[str, float]) -> str |
         clause = (f"{name} seeks something to do"
                   + (f", then takes up {act}" if act else ""))
     else:  # IDLE / COOLDOWN
-        clause = f"{name} idles"
+        clause = f"{name} is unoccupied"
     if crossed and dom not in ("SLEEP",):
         clause += f" ({crossed} rising)"
     return clause
@@ -351,7 +362,7 @@ def why(records: list[dict], pid: str) -> list[str]:
         at = f" at {who(tgt)}" if tgt else ""
         lines = [f"{who(pid)} — MANUAL OVERRIDE by the observer "
                  f"({last_override['clock']}, day {last_override['day']}).",
-                 f"  you chose: {iv['user_selected_action']}{at}",
+                 f"  you chose: {observer_action_label(iv['user_selected_action'])}{at}",
                  f"  the engine would have selected: "
                  f"{iv['engine_would_have_selected']}."]
         if iv.get("llm"):

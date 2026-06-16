@@ -35,8 +35,9 @@ done:
       dropdown to cast PRESENT with the subject at that tick (valid targets only,
       no telepathy) with a clear hint when the subject is alone; a Suggest button
       shows the engine's would-be action (read-only); Add validates needs-target;
-      Run with control calls run_live_controlled(profile, plan, seed, subject, mode,
-      interventions_json) for a deterministic re-run through the exact M-G path. The
+      "Re-run with queued intervention(s)" calls run_live_controlled(profile, plan,
+      seed, subject, mode, interventions_json) for a deterministic re-run through the
+      exact M-G path (turn-free, not real-time play — clarified in button + note). The
       default run_live / Verify-parity path is unchanged -> G2 parity preserved.
       Both JS blobs pass `node --check`; the embedded boot Python compiles.
   - id: llm-ui
@@ -69,6 +70,26 @@ done:
       below-threshold rejected, confirm-with-nothing, say-without-subject). Fakes
       only — no real API calls. (Welf is never alone in this seed/plan, so the
       "no valid target" path is covered via cross-room rejection.)
+  - id: premerge-polish
+    what: >
+      First-time-user clarity pass (display/UX only; no dynamics). (1) Manual action
+      prose: chronicle.manual_action_line gives plain declarative lines ("Welf
+      praises Halgrim warmly", not the garbled engine reaction tier); event_line
+      suppresses the controlled subject's own auto-derived beat on an override tick.
+      (2) Observer View relabels engine mode IDLE -> "unoccupied" (observe.observer_mode
+      + ambient "is unoccupied"); raw MODE_LABEL/Developer view unchanged. (3) suggest
+      before the first tick says "no engine suggestion yet — let one tick pass" (no
+      "?"). (4) noop/observe reads as "manual silence (no outward action)" in why/UI
+      (observer_action_label); Developer view keeps raw `noop`. (5) footer clock now
+      uses _now() = clock_str(min(t, n-1)) so it advances with the quiet summary
+      (event-beat stamps still use t-1). (6) `report intervention(s)` CLI view
+      (overrides, by action, targets, manual/LLM split, latest engine-would vs
+      you-chose) + help text. (7) build_bundle.py inserts repo root on sys.path
+      BEFORE importing inn.* (runnable from root, no PYTHONPATH/editable install).
+      (8) cockpit button "Run with control" -> "Re-run with queued intervention(s)"
+      + a note that it is a deterministic re-run, not real-time play. (9) tests:
+      tests/test_intervention_polish.py (13). equilibrium-engine unchanged; g2 ref
+      SHA 6a7404b6… unchanged; build_site + build_bundle pass; JS node --check clean.
 
 decisions:
   - "UI is READ-ONLY over the model: it renders intervention_ui/interventions and

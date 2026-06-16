@@ -233,8 +233,8 @@ caused), a concise **summary**, and timeline markers (teal) for overrides.
 
 - **Live cockpit** (`observatory/index.html`): pick a subject, choose AUTO/MANUAL,
   `Suggest`, select a *valid target* (only cast present with the subject at that
-  tick), queue overrides, and `Run with control` — a deterministic re-run through
-  the exact M-G path. The natural-language (M-H) box stays **disabled in the
+  tick), queue overrides, and `Re-run with queued intervention(s)` — a
+  deterministic re-run through the exact M-G path (turn-free, not real-time play). The natural-language (M-H) box stays **disabled in the
   browser** (no provider/key is available there); the finite palette is fully
   functional.
 - **Static export**: labelled **“static replay mode”** — it *renders* any recorded

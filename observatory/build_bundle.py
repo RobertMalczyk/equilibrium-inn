@@ -23,13 +23,17 @@ import sys
 import zipfile
 from pathlib import Path
 
-import inn.observatory as OB
-from inn.engine_surface import ENGINE_ROOT, verify_pin
-
+# Make the script runnable from the repo root with no PYTHONPATH / editable install:
+# put the repo root on sys.path BEFORE importing inn.* (and so `experiments` /
+# `observatory` resolve too). Must precede the inn imports below.
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import inn.observatory as OB  # noqa: E402  (import after sys.path setup, by design)
+from inn.engine_surface import ENGINE_ROOT, verify_pin  # noqa: E402
+
 HERE = ROOT / "observatory"
-if str(ROOT) not in sys.path:           # allow `python observatory/build_bundle.py`
-    sys.path.insert(0, str(ROOT))       # so `experiments` / `observatory` resolve
 STAGE = HERE / "_stage"
 ENGINE_SUBDIRS = ("engine", "eval", "data", "calibration")
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
@@ -114,8 +118,9 @@ function buildIntvConsole(){
     <label title="Valid targets only — cast present in the subject's room at that tick.">target <select id="iv_target"></select></label>
     <button id="iv_suggest" title="What the engine would do for this subject at this tick (read-only).">Suggest</button>
     <button id="iv_add" title="Queue this override (validated: target must be present).">Add override</button>
-    <button id="iv_run" title="Deterministically re-run live with the queued overrides.">Run with control</button>
+    <button id="iv_run" title="Re-run the whole 3-day session deterministically with the queued overrides. This is not real-time play — it recomputes the run.">Re-run with queued intervention(s)</button>
     <button id="iv_clear" title="Discard queued overrides.">Clear</button>
+    <div style="flex-basis:100%" id="iv_note" class="sub">The observatory is turn-free: queued overrides are applied by re-running the deterministic simulation, not by live play.</div>
     <div style="flex-basis:100%" id="iv_hint" class="sub"></div>
     <div style="flex-basis:100%" id="iv_list"></div>`;
   const $i=id=>document.getElementById(id);
@@ -131,7 +136,7 @@ function buildIntvConsole(){
     INTERVENTIONS.length?INTERVENTIONS.map((x,i)=>
       `<span class="intvchip">t${x.t} ${nm(x.subject)} ${fmt(x.verb)}${x.target?(' → '+nm(x.target)):''}`
       +` <a href="#" data-i="${i}" class="iv_del">×</a></span>`).join('')
-      :'<span class="sub">no overrides queued — Add some, then Run with control.</span>';
+      :'<span class="sub">no overrides queued — Add some, then Re-run with queued intervention(s).</span>';
     document.querySelectorAll('.iv_del').forEach(a=>a.onclick=ev=>{ev.preventDefault();
       INTERVENTIONS.splice(+a.dataset.i,1);refreshList();});};
   $i('iv_subj').onchange=()=>{window.CONTROLLED=$i('iv_subj').value;refreshTargets();render();};

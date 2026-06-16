@@ -22,6 +22,42 @@ def who(name: str | None) -> str:
     return WHO.get(name, DISPLAY.get(name, name.capitalize()))
 
 
+# Observer-facing prose for a MANUAL intervention (M-G/M-I). A manual action is
+# the observer's, not an autonomous reaction, so it gets a plain declarative line
+# rather than the engine's tiered reaction narration (which would mis-read, e.g.
+# "Welf is visibly warmed, and thanks them gladly at Halgrim"). The internal route
+# / engine action / provenance are unchanged — this is display only.
+MANUAL_ACTION_PHRASE = {
+    "praise": "{a} praises {t} warmly",
+    "help": "{a} helps {t}",
+    "insult": "{a} insults {t}",
+    "command": "{a} gives {t} a firm command",
+    "complain": "{a} complains to {t}",
+    "refuse": "{a} refuses {t}",
+    "cold": "{a} answers {t} coldly",
+    "cold_reply": "{a} answers {t} coldly",
+    "serve": "{a} serves {t}",
+    "observe": "{a} holds silent — no outward action",
+    "noop": "{a} holds silent — no outward action",
+}
+
+
+def manual_action_line(verb: str, actor: str, target: str | None = None) -> str:
+    """A clear observer-facing line for a manual intervention by `actor`."""
+    tmpl = MANUAL_ACTION_PHRASE.get(verb)
+    a, t = who(actor), (who(target) if target else "")
+    if tmpl:
+        return tmpl.format(a=a, t=t).strip()
+    return f"{a} {verb}" + (f" {t}" if t else "")
+
+
+def observer_action_label(verb: str | None) -> str:
+    """Short label for 'you chose: …'. observe/noop read as held silence."""
+    if verb in ("observe", "noop"):
+        return "manual silence (no outward action)"
+    return verb or "—"
+
+
 def reaction_phrase(action: str, score: float) -> str:
     """Tiered observable phrase for a reactive action at a given selection score
     (higher score -> stronger phrasing). Falls back to the bare action id."""
@@ -59,13 +95,27 @@ def event_line(rec: dict) -> str | None:
     """One observable beat for tick `rec`, or None if nothing notable happened.
     Built from external acts (probes/player verbs) + the transduction log (the
     social acts everyone in the room can see), target-role lines only."""
+    iv = rec.get("intervention")
+    manual = bool(iv and iv.get("selected_by") == "manual_override")
+    subj = iv.get("subject") if manual else None
     parts: list[str] = []
+    # M-G/M-I: the observer's manual action gets a plain declarative line; the
+    # controlled subject's own auto-derived beat (its probe / transduction this
+    # tick) is suppressed so the intervention never reads as autonomous behaviour.
+    if manual:
+        parts.append(manual_action_line(iv["user_selected_action"], subj,
+                                        iv.get("target")))
     for p in rec.get("probes", []):
+        src = p["probe"].split(":")[1] if p["probe"].count(":") >= 2 else None
+        if manual and src == subj:
+            continue
         beat = _probe_beat(p["probe"])
         if beat:
             parts.append(beat)
     for tr in rec.get("transductions", []):
         if tr["role"] != "target":
+            continue
+        if manual and tr["actor"] == subj:
             continue
         actor, target = who(tr["actor"]), who(tr["target_inferred"])
         phrase = reaction_phrase(tr["action"], tr["score"])
@@ -76,10 +126,7 @@ def event_line(rec: dict) -> str | None:
     if not parts:
         return None
     line = "; ".join(parts)
-    # M-G: mark a beat the observer caused via a controlled subject, so the
-    # chronicle never makes an intervention look like autonomous behaviour.
-    iv = rec.get("intervention")
-    if iv and iv.get("selected_by") == "manual_override":
+    if manual:
         line = f"(your intervention) {line}"
     return line
 

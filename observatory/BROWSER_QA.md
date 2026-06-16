@@ -38,7 +38,7 @@ reference — use `python observatory/build_site.py` and serve `observatory/_sit
    subject** at the chosen tick. (Pick a tick where the subject shares a room;
    otherwise the hint says they are alone and targeted actions are unavailable.)
 8. Execute a manual action (e.g. **praise** or **insult**): **Add override** then
-   **Run with control**.
+   **Re-run with queued intervention(s)** (a deterministic re-run — not real-time play).
 9. Confirm the UI shows, for the override:
    - **selected_by: manual override** (badge “manual” / “LLM-assisted”),
    - **user_selected_action** (e.g. *insult*),
@@ -52,7 +52,7 @@ reference — use `python observatory/build_site.py` and serve `observatory/_sit
 11. Scrub the timeline past the override tick → observe the **target NPC reacting**
     (one-tick latency) in the stream/cards, attributed back to the subject. A
     **teal marker** sits on the subject’s ribbon at the override tick.
-12. Switch mode to **AUTO** and **Run with control** (or **Release** by selecting a
+12. Switch mode to **AUTO** and **Re-run with queued intervention(s)** (or **Release** by selecting a
     different subject) → the subject is observed autonomously again; the “latest
     action” reads **engine-selected (autonomous)**.
 13. Confirm autonomous behaviour resumes (no overrides; the panel summary updates).

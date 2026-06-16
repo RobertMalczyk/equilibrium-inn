@@ -20,7 +20,7 @@ from pathlib import Path
 
 from inn import metrics as M
 from inn import observe as O
-from inn.chronicle import event_line, who
+from inn.chronicle import event_line, manual_action_line, who
 from inn.config import InnConfig, Probe, load_inn_config
 from inn.engine_surface import PINNED_COMMIT, believable_day_layout
 from inn.intervention import (
@@ -157,7 +157,13 @@ class CliSession:
         return beats
 
     def clock(self) -> str:
+        # the time of the tick just simulated (used to stamp event beats)
         return self.loop.clock.clock_str(max(0, self.t - 1))
+
+    def _now(self) -> str:
+        # the CURRENT standpoint (footer): after advancing N ticks the clock has
+        # moved N*dt, so the footer reflects the time the quiet summary implies.
+        return self.loop.clock.clock_str(min(self.t, self.n_ticks - 1))
 
     # -- verbs -------------------------------------------------------------
 
@@ -192,7 +198,7 @@ class CliSession:
         action = make_intervention(verb, target, llm=llm)
         self.loop.queue_intervention(self.t, action)
         self.interventions.append(serialize(self.t, subject, action))
-        label = f"{who(subject)} {verb}" + (f" {who(target)}" if target else "")
+        label = manual_action_line(verb, subject, target)
         self.verb_log.append((self.t, f"act {verb}" + (f" {target}" if target else "")))
         beats = self._advance(8, stop_when_quiet=3)
         return beats or [f"_({label}. Nothing comes of it — yet.)_"]
@@ -218,16 +224,18 @@ class CliSession:
         if self.control.subject is None:
             return ["No one is under control — `control <name>` first."]
         s = self.control.subject
-        eng = "?"
-        if self.records:
-            iv = self.records[-1].get("intervention")
-            if iv and iv["subject"] == s:
-                eng = iv["engine_would_have_selected"]
-            else:
-                eng = self.records[-1]["personas"][s]["selection"]["action"]
+        mode = "MANUAL" if self.control.mode == "manual" else "AUTO"
+        if not self.records:
+            return [f"{who(s)} [{mode}] — no engine suggestion yet; "
+                    f"let one tick pass first (`wait 1`).",
+                    f"  palette: {', '.join(PALETTE_VERBS)}"]
+        iv = self.records[-1].get("intervention")
+        if iv and iv["subject"] == s:
+            eng = iv["engine_would_have_selected"]
+        else:
+            eng = self.records[-1]["personas"][s]["selection"]["action"]
         present = self._present_to(s)
-        return [f"{who(s)} — the engine inclines toward: {eng} "
-                f"({'MANUAL' if self.control.mode == 'manual' else 'AUTO'}).",
+        return [f"{who(s)} — the engine inclines toward: {eng} ({mode}).",
                 f"  palette: {', '.join(PALETTE_VERBS)}",
                 f"  targets present: {', '.join(who(p) for p in present) or 'no one'}"]
 
@@ -270,7 +278,7 @@ class CliSession:
 
     def footer(self) -> str:
         present = ", ".join(who(p) for p in self._present()) or "no one"
-        lines = [f"[{self.clock()}] In the {self.player_room.replace('_', ' ')} "
+        lines = [f"[{self._now()}] In the {self.player_room.replace('_', ' ')} "
                  f"with: {present}.",
                  f"verbs: {', '.join(VERBS)} <name> | {', '.join(META)}"]
         if self.control.subject is not None:
@@ -415,13 +423,13 @@ class CliSession:
     def _card(self, pid: str) -> list[str]:
         rec = self.records[-1]
         mood = O.mood_label(rec, pid, self.high)
-        mode = O.MODE_LABEL[O.mode_of(rec, pid)]
+        mode = O.observer_mode(O.MODE_LABEL[O.mode_of(rec, pid)])
         room = (rec["presence"].get(pid) or "?").replace("_", " ")
         act = self._need_recently(pid)
         ctrl = ""
         if self.control.subject == pid:
             iv = rec.get("intervention")
-            eng = iv["engine_would_have_selected"] if iv else "?"
+            eng = iv["engine_would_have_selected"] if iv else O.action_of(rec, pid)
             ctrl = f" | CONTROLLED [{self.control.mode.upper()}], engine would: {eng}"
         head = (f"{who(pid)} — {mood} | {mode}" + (f" | {act}" if act else "")
                 + ctrl + f"  ({rec['clock']}, in the {room})")
@@ -443,9 +451,9 @@ class CliSession:
             rec = self.records[-1]
             for pid in self.cast_ids:
                 mood = O.mood_label(rec, pid, self.high)
-                mode = O.MODE_LABEL[O.mode_of(rec, pid)]
+                mode = O.observer_mode(O.MODE_LABEL[O.mode_of(rec, pid)])
                 room = (rec["presence"].get(pid) or "?").replace("_", " ")
-                out.append(f"{who(pid):<9} {mood:<9} {mode:<9} {room}")
+                out.append(f"{who(pid):<9} {mood:<11} {mode:<11} {room}")
             return out
         name = self._resolve(args[0])
         if name is None:
@@ -493,8 +501,35 @@ class CliSession:
             return self._report_scarcity()
         if sub == "incidents":
             return self._report_incidents()
+        if sub in ("intervention", "interventions"):
+            return self._report_interventions()
         return ["report what? (day [N] | npc <name> | sleep | activity | "
-                "scarcity | incidents)"]
+                "scarcity | incidents | interventions)"]
+
+    def _report_interventions(self) -> list[str]:
+        """Observer-intervention summary: overrides, by action, targets, the
+        manual/LLM split, and the latest engine-would-have vs you-chose."""
+        from inn.chronicle import observer_action_label
+        r = O.report_intervention(self.records, None, self.cast_ids,
+                                  self.incident_actions)
+        if r["n_overrides"] == 0:
+            sub = self.control.subject
+            held = (f" {who(sub)} is under control but has not been told to act"
+                    if sub else "")
+            return [f"Interventions: none yet.{held}"]
+        out = [f"Interventions: {r['n_overrides']} manual override(s) "
+               f"({r['llm_assisted']} LLM-assisted, "
+               f"{r['n_overrides'] - r['llm_assisted']} from the palette).",
+               f"  by action: " + ", ".join(f"{k}×{v}" for k, v in r["by_action"].items()),
+               f"  targets: " + (", ".join(f"{who(k)}×{v}"
+                                           for k, v in r["targets"].items()) or "—"),
+               f"  social incidents after first override: {r['incidents_after']}"]
+        last = r["overrides"][-1]
+        at = f" at {who(last['target'])}" if last.get("target") else ""
+        out.append(f"  latest ({last['clock']}, day {last['day']}): you chose "
+                   f"{observer_action_label(last['user_selected_action'])}{at}; "
+                   f"engine would have {last['engine_would_have_selected']}.")
+        return out
 
     def _report_sleep(self) -> list[str]:
         """Does night recover fast states? Fatigue/stress at each day's last
@@ -582,7 +617,8 @@ class CliSession:
             "  insult/command/help/praise/serve <name> — act on someone present\n"
             "  wait [n] — let n ticks pass   sleep — advance to morning\n"
             "  observe all | observe <name> — state cards (mood/mode/needs)\n"
-            "  report day [N] | npc <name> | sleep | activity | scarcity | incidents\n"
+            "  report day [N] | npc <name> | sleep | activity | scarcity | "
+            "incidents | interventions\n"
             "  plot <name> <state...> — sparkline (e.g. plot welf boredom fatigue)\n"
             "  why <name> — why their last act happened (manual vs autonomous)\n"
             "  mode — toggle ambient summaries   look — who's here   quit\n"
