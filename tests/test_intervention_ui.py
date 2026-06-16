@@ -104,13 +104,20 @@ def test_static_export_renders_interventions(tmp_path):
     assert "renderInterventions" in html and "Engine suggestion" in html
 
 
-# 8 — the cockpit page (with the live intervention console) still builds.
+# 8 — the cockpit page (with the LIVE-FRONTIER intervention console) still builds.
 def test_cockpit_index_builds():
     import observatory.build_bundle as B
     p = B.build_index()
     html = p.read_text(encoding="utf-8")
-    assert "buildIntvConsole" in html and "run_live_controlled" in html
-    assert "iv_presentWith" in html  # valid-target filtering present
+    # the live-frontier console + the Python live API it drives
+    assert "buildLiveConsole" in html and "live_intervene" in html
+    assert "from inn.live import LiveSession" in html
+    assert "present_with" in html              # execution-time target validation
+    assert "Apply now and continue" in html    # frontier action, not a future queue
+    assert "Return to live frontier" in html   # history is read-only
+    # the obsolete future-queue UX is gone
+    assert "Re-run with queued" not in html
+    assert "run_live_controlled" not in html
 
 
 # 9 — valid-target data is available to the UI (presence per tick in the model).

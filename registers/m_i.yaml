@@ -107,3 +107,53 @@ deferred:
      disabled in the browser; the CLI is the LLM path."
   - "rest/seek_activity still omitted from the palette (no clean engine path; future
      work needs an engine-side seam) — see [[g1-audit-handoff]] / registers/m_g_h.yaml."
+
+# --- M-I follow-up: live-frontier correction pass (2026-06-16) ----------------
+live_frontier_pass:
+  date: 2026-06-16
+  summary: >
+    Replaced the cockpit's future-queued batch intervention UX with a LIVE-FRONTIER
+    model. The observer influences the world ONLY at the live frontier (the latest
+    computed tick); the future emerges from that new state. No future-queue, no
+    arbitrary-future scheduling, no telepathy.
+  changes:
+    - "NEW inn/live.py (LiveSession): an incremental driver over InnLoop._step.
+       advance/take_control/release/set_mode/present_with(frontier)/engine_would/
+       validate(frontier)/intervene(at frontier, then advance). Owns NO dynamics —
+       only drives the same per-tick call InnLoop.run makes + mutates the shared
+       ControlState. The SAME class the cockpit imports and the tests pin."
+    - "PROVEN: incremental live-frontier driving is BYTE-IDENTICAL to a batch
+       run_session with the same (control, interventions) — test_live_frontier_equals_batch
+       + test_autonomous_live_matches_plain_run. Honesty + determinism intact."
+    - "build_bundle.py: boot now holds ONE persistent LiveSession; exposes
+       live_start/live_advance/live_take_control/live_release/live_set_mode/
+       live_intervene/live_present_with/live_engine_would/live_frontier_info. JS
+       buildLiveConsole + updateLiveControls (disable away from frontier) +
+       liveRefresh (follow frontier). Removed iv_tick future picker, INTERVENTIONS
+       queue, run_live/run_live_controlled, 'Re-run with queued intervention(s)'.
+       New labels: 'Run full simulation', 'Start live session', 'Engine would…',
+       'Apply now and continue', 'Advance ▶', 'Return to live frontier',
+       'Reviewing history'."
+    - "observatory.py: render() calls window.afterRender (live frontier/history
+       hook; noop in static export); ribbon legend always includes the observer
+       'intervention' entry; help <details> + hint rewritten to the live-frontier
+       model with the three honest tracks (cycle ribbon = engine truth; room =
+       world/schedule truth; teal marks = observer influence). renderWhy stays
+       frame-aware; ribbon teal bar+cap kept."
+    - "Target validation happens at EXECUTION time against the frontier presence
+       (LiveSession.validate -> validate_target). Telepathy/self/target-less all
+       rejected — test_target_validated_at_frontier_no_telepathy + _self_and_targetless."
+    - "Static export stays READ-ONLY: renders recorded interventions, no live driver
+       (no live_intervene / loadPyodide) — test_static_export_is_read_only."
+    - "LLM browser-disabled unchanged; no API key in HTML/bundle/model —
+       test_no_api_key_in_cockpit_html (build with a key set; assert absent)."
+    - "NEW tests/test_intervention_frontier.py (14); test_intervention_ui.py test 8
+       updated to the live identifiers. Full suite 202 passed."
+  invariants_held:
+    - "ZERO engine-dynamics changes; equilibrium-engine working tree clean."
+    - "g2_reference SHA 6a7404b6…1927573a UNCHANGED (parity intact); golden intact."
+    - "No game systems added (no quests/score/inventory/levels/combat)."
+  decision: >
+    SUPERSEDES the earlier 'cockpit uses the existing batch re-run model' decision:
+    the cockpit now uses the live-frontier model. The underlying determinism story is
+    unchanged (live == batch byte-for-byte), so replay/goldens are untouched.

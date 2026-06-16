@@ -204,8 +204,13 @@ python -m inn.observatory observatory/_run_impulse -o observatory/run.html --str
 # open observatory/run.html in any browser
 ```
 
+The static export is **read-only**: it replays a recorded run. Its time scrubber
+reviews history; it carries no live controls.
+
 **Pyodide live cockpit** (runs the inn in-browser; profile/protocol/seed
-controls):
+controls). It is **interactive** — but only at the **live frontier**: the time
+scrubber is a read-only history reviewer, and intervention is enabled only when the
+playhead is at the frontier (see *Intervention console* below):
 
 ```bash
 python observatory/build_bundle.py            # builds inn_bundle.zip + index.html
@@ -220,25 +225,39 @@ runtime**, which loads from the official CDN by default.
 
 #### Intervention console in the Observatory (M-I)
 
-The Observatory surfaces M-G/M-H as a read-only **intervention console** — an
-observatory control panel, not an RPG HUD. The UI consumes the model's
-intervention fields (`intervention_ui`, `interventions`); it never recomputes
-engine behaviour. It shows the **controlled subject** (room, mode, observer-facing
-state, and whether the latest outward action was *engine-selected*, a *manual
-override*, or an *LLM-assisted* override), the **engine suggestion** (what the
-autonomous NPC would have done — read-only), the **action palette** (the same
-finite M-G actions; `rest`/`seek_activity` are intentionally absent), the **latest
-intervention** (you-chose vs engine-would-have, route, and the reactions it
-caused), a concise **summary**, and timeline markers (teal) for overrides.
+The Observatory surfaces M-G/M-H as an **intervention console** — an observatory
+control panel, not an RPG HUD (no quests/score/inventory/levels). The UI consumes
+the model's intervention fields (`intervention_ui`, `interventions`); it never
+recomputes engine behaviour. It shows the **controlled subject** (room, mode,
+observer-facing state, and whether the latest outward action was *engine-selected*,
+a *manual override*, or an *LLM-assisted* override), the **engine suggestion** (what
+the autonomous NPC would have done — read-only), the **action palette** (the same
+finite M-G actions; `rest`/`seek_activity` are intentionally absent, and
+`observe`/`noop` are labelled as silence), the **latest intervention** (you-chose vs
+engine-would-have, route, and the reactions it caused), a concise **summary**, and
+teal timeline markers for overrides.
 
-- **Live cockpit** (`observatory/index.html`): pick a subject, choose AUTO/MANUAL,
-  `Suggest`, select a *valid target* (only cast present with the subject at that
-  tick), queue overrides, and `Re-run with queued intervention(s)` — a
-  deterministic re-run through the exact M-G path (turn-free, not real-time play). The natural-language (M-H) box stays **disabled in the
-  browser** (no provider/key is available there); the finite palette is fully
-  functional.
+The cockpit uses a **live-frontier** model (`inn/live.py` `LiveSession`), *not* a
+future-queue. The observer influences the world only at the **live frontier** (the
+latest computed tick); the future then emerges from that new state. There is no
+arbitrary-future scheduling: an action is validated against the live state **at
+execution time** (no telepathy — the target must be co-located *now*), applied at the
+frontier tick through the exact M-G path, and then the simulation advances. The same
+`LiveSession` runs in CPython (pinned by the tests) and in Pyodide, so the browser
+path is the tested path. Driving the live session forward incrementally is
+byte-identical to a batch run carrying the same `(control, interventions)`.
+
+- **Live cockpit** (`observatory/index.html`): `Run full simulation` computes the
+  whole run for read-only review; `Start live session` (in the console) drives a
+  mid-run frontier you can act at. Pick a subject, choose **AUTO** (engine drives) or
+  **MANUAL** (you act), `Engine would…` (read-only suggestion), select a *valid
+  target* (only cast co-located at the frontier), then **`Apply now and continue`**.
+  The time scrubber is a **history reviewer**: scrub back and intervention controls
+  disable with *“Reviewing history — return to the live frontier to intervene.”* The
+  natural-language (M-H) box stays **disabled in the browser** (no provider/key is
+  available there); the finite palette is fully functional.
 - **Static export**: labelled **“static replay mode”** — it *renders* any recorded
-  intervention trace (overrides, causality, markers) but offers no live controls.
+  intervention trace (overrides, causality, teal markers) but offers no live controls.
 
 The optional LLM free-text seam is exercised from the **CLI** (`say "…"` →
 `confirm`); see *Optional LLM free-text seam (M-H)* above. A real-browser smoke
