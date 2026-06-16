@@ -703,6 +703,10 @@ def _try_readline(session: CliSession) -> None:
 def main(argv: list[str] | None = None) -> None:
     import argparse
     import tempfile
+    # Load an optional repo-root `.env` (gitignored) so the M-H LLM seam can be
+    # configured without exporting env vars by hand. Real env vars still win.
+    from inn.llm_seam import _load_dotenv_once
+    _load_dotenv_once()
     ap = argparse.ArgumentParser(description="Play the inn.")
     ap.add_argument("--menu", action="store_true", help="numbered choices")
     ap.add_argument("--seed", type=int, default=7)

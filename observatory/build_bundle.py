@@ -123,10 +123,10 @@ function buildLiveConsole(){
     <label title="AUTO: the engine drives. MANUAL: your action replaces the outward action at the frontier (silent on ticks you don't act).">Mode <select id="iv_mode"><option value="auto"${info.mode!=='manual'?' selected':''}>AUTO — observe</option><option value="manual"${info.mode==='manual'?' selected':''}>MANUAL — you act</option></select></label>
     <label title="The outward action — finite, engine-compatible palette.">Manual intervention <select id="iv_action">${palOpts}</select></label>
     <label title="Valid targets only — cast co-located with the subject at the live frontier.">Target <select id="iv_target"></select></label>
-    <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live session</button>
-    <button id="iv_suggest" title="What the engine would do for this subject (read-only).">Engine would…</button>
     <button id="iv_apply" title="Route this action through the normal world path at the live frontier, then continue.">Apply now and continue</button>
     <button id="iv_adv" title="Advance the live simulation forward without acting.">Advance ▶</button>
+    <button id="iv_suggest" title="What the engine would do for this subject (read-only).">Engine would…</button>
+    <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live session</button>
     <button id="iv_return" style="display:none" title="Jump the playhead back to the live frontier to intervene.">Return to live frontier</button>
     <div style="flex-basis:100%" id="iv_live" class="sub"></div>
     <div style="flex-basis:100%" id="iv_hint" class="sub"></div>`;
@@ -161,23 +161,36 @@ function updateLiveControls(){
   if(!window.LIVE_ACTIVE||!document.getElementById('iv_subj'))return;
   const nm=id=>(window.MODEL.display_names||{})[id]||id;
   const atFrontier=frame>=(window.FRONTIER||0), info=liveInfo();
-  ['iv_subj','iv_mode','iv_action','iv_target','iv_start','iv_suggest','iv_apply','iv_adv']
+  // Always available (they reconfigure / restart the session, not act on the
+  // current frontier): subject, mode, Start live session.
+  // Disabled while reviewing history (they act on the live frontier): action,
+  // target, Engine would…, Apply, Advance.
+  ['iv_action','iv_target','iv_suggest','iv_apply','iv_adv']
     .forEach(id=>{const e=document.getElementById(id); if(e)e.disabled=!atFrontier;});
+  ['iv_subj','iv_mode','iv_start']
+    .forEach(id=>{const e=document.getElementById(id); if(e)e.disabled=false;});
   const ret=document.getElementById('iv_return'); if(ret)ret.style.display=atFrontier?'none':'inline-block';
   const apply=document.getElementById('iv_apply');
   if(apply&&atFrontier)apply.disabled=!!info.at_end||info.mode!=='manual'||!info.subject;
   const adv=document.getElementById('iv_adv'); if(adv&&atFrontier)adv.disabled=!!info.at_end;
   const live=document.getElementById('iv_live'); if(!live)return;
   const tk=window.MODEL.ticks[frame]||{};
+  // a slim teal progress bar: how much of the 3 days the live frontier has reached.
+  const pct=info.total?Math.round(100*(info.frontier||0)/info.total):0;
+  const bar=`<div class="frontwrap"><div class="frontbar"><span style="width:${pct}%"></span></div>`
+    +`<span class="frontpct">${pct}% of the 3 days written</span></div>`;
   if(!atFrontier){live.innerHTML=`<b>Reviewing history</b> (day ${tk.day} ${tk.clock}). `
-    +`Controls are disabled. Return to the live frontier to intervene.`;}
-  else if(info.at_end){live.innerHTML='<b>End of run.</b> The three days are fully '
-    +'computed — scrub to review, or Start a live session to intervene mid-run.';}
-  else{live.innerHTML=`<b>LIVE</b> — at the frontier (day ${tk.day} ${tk.clock}). `
+    +`Controls are disabled. <b>Return to live frontier</b> to intervene.`+bar;}
+  else if(info.at_end){live.innerHTML='<b>End of run.</b> All three days are written '
+    +'— scrub to review, or <b>Start live session</b> to intervene mid-run.'+bar;}
+  else{live.innerHTML=`<b>LIVE</b> — frontier at day ${tk.day} ${tk.clock}.`+bar
+    +`<div class="livehint">The first ~2 hours are seeded so there's a scene to act on. `
+    +`<b>The rest of the 3 days is yours to write</b> — `
     +(info.subject?(info.mode==='manual'
-        ?`Pick an action + target, then <b>Apply now and continue</b>.`
-        :`AUTO: the engine drives. Switch to MANUAL to intervene, or <b>Advance ▶</b>.`)
-      :`<b>Start live session</b> with a subject to intervene.`);}
+        ?`pick an action + target and <b>Apply now and continue</b>, or <b>Advance ▶</b>.`
+        :`AUTO lets the engine drive; switch to <b>MANUAL</b> to intervene, or <b>Advance ▶</b>.`)
+      :`pick a <b>controlled subject</b> to intervene, or <b>Advance ▶</b> to watch.`)
+    +`</div>`;}
 }
 async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
@@ -289,6 +302,9 @@ import js
 CFG = load_inn_config("inn.yaml")
 DAY = believable_day_layout()["day_ticks"]
 TOTAL = CFG.days*DAY
+HOUR = max(1, round(DAY/24))          # ticks per in-world hour
+SEED_TICKS = 2*HOUR                    # seed the first ~2 hours of day 1 so there
+                                       # is a scene to act on; the rest is the user's
 # M-I live-frontier: ONE persistent session. The observer acts only at the live
 # frontier (inn.live.LiveSession — the same class the CPython tests pin); the
 # future emerges from that new state. No future-queue.
@@ -304,7 +320,7 @@ def _emit(first=False):
     js.liveRefresh()          # follow the frontier + (re)build the live console
 def live_start(profile, plan, seed, subject, mode, initial):
     init = int(initial)
-    init = (DAY//3 if init <= 0 else init)          # controlled start lands mid-day 1
+    init = (SEED_TICKS if init <= 0 else init)       # seed ~2 h of day 1, rest is live
     SESS["s"] = LiveSession(CFG, profile, plan, int(seed), TOTAL,
                             subject=(subject or None), mode=(mode or "auto"))
     SESS["s"].advance(init)

@@ -21,3 +21,7 @@ observatory/_site/
 
 # Source copy of the art pack (the working set lives in observatory/assets/).
 Pictures/
+
+# Local secrets — the optional M-H LLM seam reads these (never committed).
+# A committed template lives at .env.example.
+.env

@@ -25,12 +25,38 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from inn.intervention import ACTION_PALETTE, PALETTE_VERBS, validate_target
 
 ENV_PROVIDER = "EQUILIBRIUM_INN_LLM_PROVIDER"
 ENV_API_KEY = "EQUILIBRIUM_INN_LLM_API_KEY"
 ENV_MODEL = "EQUILIBRIUM_INN_LLM_MODEL"
+
+_DOTENV_LOADED = False
+
+
+def _load_dotenv_once() -> None:
+    """Populate os.environ from a repo-root `.env` (KEY=VALUE lines), without
+    overriding anything already set in the real environment. Dependency-free and
+    idempotent. The `.env` file is gitignored — the key never leaves the machine,
+    and (like all key handling here) is read at call time only, never persisted to
+    the trace, session, or any log."""
+    global _DOTENV_LOADED
+    if _DOTENV_LOADED:
+        return
+    _DOTENV_LOADED = True
+    p = Path(__file__).resolve().parents[1] / ".env"
+    if not p.is_file():
+        return
+    for raw in p.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
 
 # default model per provider when EQUILIBRIUM_INN_LLM_MODEL is unset
 _DEFAULT_MODELS = {
@@ -41,7 +67,9 @@ _DEFAULT_MODELS = {
 
 def enabled() -> bool:
     """True only when a provider is configured. No provider -> the seam is off
-    and the finite palette is the sole input path."""
+    and the finite palette is the sole input path. (Reads os.environ only — the
+    CLI loads any repo-root `.env` into the environment at startup via
+    _load_dotenv_once, keeping this pure for tests.)"""
     return bool(os.environ.get(ENV_PROVIDER))
 
 

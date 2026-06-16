@@ -168,7 +168,7 @@ button{font:inherit;background:#efe2c2;border:1px solid var(--line);border-radiu
 button:hover{background:#e7d6ad}
 button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .grid{display:grid;gap:16px}
-.cols{grid-template-columns:1.18fr .82fr}
+.cols{grid-template-columns:1.5fr .9fr}
 .cols3{grid-template-columns:1.3fr .7fr}
 @media(max-width:900px){.cols,.cols3{grid-template-columns:1fr}}
 .card{border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow);
@@ -177,12 +177,13 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .card h3{display:flex;align-items:center;gap:8px;font-size:12.5px;text-transform:uppercase;
   letter-spacing:1.3px;color:var(--muted);margin-bottom:11px}
 .card h3 img{width:18px;height:18px}
-.scene{position:relative;border-radius:12px;overflow:hidden;min-height:230px;padding:10px;
+.scene{position:relative;border-radius:12px;overflow:hidden;min-height:380px;padding:12px;
   background:var(--a-scene,#f5ead0) center/cover;border:1px solid var(--line)}
-.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.room{min-height:84px;background:rgba(251,244,227,.82);border:1px solid var(--line);
-  border-radius:10px;padding:8px}
-.room .rn{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.room{min-height:150px;background:rgba(251,244,227,.34);border:1px solid rgba(216,201,168,.7);
+  border-radius:10px;padding:9px;backdrop-filter:blur(1px)}
+.room .rn{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink);
+  font-weight:600;text-shadow:0 1px 2px rgba(255,250,238,.8)}
 .tok{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
   width:52px;height:52px;margin:5px 5px 0 0;border-radius:50%;cursor:pointer;
   background:var(--tokbg) center/contain no-repeat;background-color:#fff;
@@ -246,6 +247,14 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 #intvconsole select,#intvconsole input{font:inherit;padding:2px 4px}
 .intvchip{display:inline-block;background:rgba(42,154,160,.13);border:1px solid #2a9aa0;
   border-radius:5px;padding:1px 7px;margin:2px;font-size:12px}
+.frontwrap{display:flex;align-items:center;gap:9px;margin:5px 0 2px}
+.frontbar{flex:1;height:8px;background:rgba(42,154,160,.14);border:1px solid rgba(42,154,160,.34);
+  border-radius:6px;overflow:hidden;max-width:340px}
+.frontbar>span{display:block;height:100%;background:linear-gradient(90deg,#2a9aa0,#39c2c9);
+  border-radius:6px;transition:width .25s}
+.frontpct{font-size:11px;color:#1f6f72;font-variant-numeric:tabular-nums;white-space:nowrap}
+.livehint{font-size:12px;color:var(--muted);margin-top:2px}
+.livehint b{color:#1f6f72}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -262,10 +271,16 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .footer img{width:28px;height:28px;vertical-align:middle;opacity:.8}
 .isnight .scene{filter:saturate(.8) brightness(.94)}
 canvas{display:block}
+.tip{position:fixed;z-index:60;max-width:262px;background:#2a2018;color:#f3e9d2;
+  font-size:12px;line-height:1.45;padding:8px 10px;border-radius:8px;pointer-events:none;
+  box-shadow:0 5px 16px rgba(0,0,0,.32);display:none}
+.tip b{color:#7fd6da}
+.tip i{color:#cdbfa3}
 """
 
 BODY = """
 <div class="fireflies"></div>
+<div class="tip" id="tip"></div>
 <div class="wrap">
   <div class="hero">
     <img class="emblem" id="emblem" alt="">
@@ -463,13 +478,44 @@ function buildRibbons(){const n=MODEL.ticks.length, w=Math.min(880,Math.max(320,
     MODEL.incidents.forEach(inc=>{const i=tickIndex(inc.t);if(i>=0)ctx.fillRect(i/n*W,0,2,H);});
     // M-I: mark the observer's manual actions on the controlled subject's ribbon.
     // A full-height teal bar + a brighter cap notch at top, so a user action reads
-    // distinctly from the red incident ticks.
+    // distinctly from the red incident ticks. The marks are interactive: hover for
+    // a note, click to jump the playhead to that action (see attachMarkHover).
+    const marks=[];
     (MODEL.interventions||[]).forEach(x=>{if(x.subject===p&&x.selected_by==='manual_override'){
       const i=tickIndex(x.t); if(i<0)return; const xpx=i/n*W;
       ctx.fillStyle='#1f6f72'; ctx.fillRect(xpx,0,3,H);                 // the action moment
       ctx.fillStyle='#39c2c9'; ctx.fillRect(Math.max(0,xpx-1),0,5,4);  // bright cap notch
-    }});});
+      marks.push({px:xpx,iv:x});
+    }});
+    attachMarkHover(cv,p,marks,n,W);});
   drawPlayhead();}
+// Tooltip + click-to-seek for the teal intervention marks on a ribbon. Hovering a
+// mark pops a note about that action; clicking it (or anywhere on the ribbon)
+// moves the playhead — the slider and the ribbon both scrub time.
+function showTip(html,x,y){const t=$('tip'); if(!t)return;
+  t.innerHTML=html; t.style.display='block';
+  t.style.left=Math.min(x+12,window.innerWidth-272)+'px';
+  t.style.top=Math.min(y+14,window.innerHeight-90)+'px';}
+function hideTip(){const t=$('tip'); if(t)t.style.display='none';}
+function ivTipHtml(iv){const at=iv.target?(' → '+nm(iv.target)):'';
+  return `<b>${nm(iv.subject)} — manual intervention</b><br>day ${iv.day} ${iv.clock}<br>`
+    +`you chose: ${ivLabel(iv.user_selected_action)}${at}<br>`
+    +`engine would: ${fmt(iv.engine_would_have_selected)}`
+    +(iv.route?`<br><i>route: ${iv.route}</i>`:'')
+    +(iv.llm?`<br><i>from text: “${iv.llm.original_text||''}”</i>`:'');}
+function attachMarkHover(cv,p,marks,n,W){
+  const hitOf=ev=>{const r=cv.getBoundingClientRect(), sx=W/r.width,
+    mx=(ev.clientX-r.left)*sx; return marks.find(mk=>Math.abs(mk.px-mx)<=6);};
+  cv.style.cursor=marks.length?'pointer':'default';
+  cv.onmousemove=ev=>{const hit=hitOf(ev);
+    if(hit){showTip(ivTipHtml(hit.iv),ev.clientX,ev.clientY); cv.style.cursor='pointer';}
+    else{hideTip(); cv.style.cursor=marks.length?'pointer':'crosshair';}};
+  cv.onmouseleave=hideTip;
+  cv.onclick=ev=>{const hit=hitOf(ev); let i;
+    if(hit)i=tickIndex(hit.iv.t);
+    else{const r=cv.getBoundingClientRect(), sx=W/r.width;
+      i=Math.max(0,Math.min(MODEL.ticks.length-1,Math.round((ev.clientX-r.left)*sx/W*n)));}
+    selected=p; frame=i; const sc=$('scrub'); if(sc)sc.value=frame; render();};}
 function drawPlayhead(){const n=MODEL.ticks.length, ax=$('axis'); if(!ax)return;
   const ctx=ax.getContext('2d'); ctx.clearRect(0,0,ax.width,ax.height);
   ctx.fillStyle='#3a2f24'; ctx.fillRect(frame/n*ax.width,0,2,ax.height);
