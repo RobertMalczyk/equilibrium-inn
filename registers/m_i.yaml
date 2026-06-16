@@ -1,0 +1,75 @@
+milestone: M-I (Intervention UI integration — wire M-G/M-H into the Observatory)
+state: IMPLEMENTED. The already-merged M-G (Controlled Subject / Intervention Mode)
+  and M-H (optional LLM seam) are now surfaced as a coherent, read-only intervention
+  console in the Observatory UI (static export + Pyodide cockpit), driven entirely by
+  the shared model layer. Integration + UX + QA only: ZERO new simulation behaviour,
+  ZERO engine changes, ZERO dynamics tuning. Golden + G2 parity reference + import
+  contract intact. 149 tests green (139 prior + 10 new).
+updated: 2026-06-16
+
+done:
+  - id: model-layer
+    what: >
+      inn/observe.py — build_model now always exposes "intervention_ui"
+      {palette (valid_actions), llm_enabled (= llm_seam.enabled(), False in the
+      browser), controlled_subjects, summary} and keeps the "interventions" list
+      (only when overrides exist). New intervention_ui_model() reuses
+      report_intervention(); no parallel UI state, no engine recompute. The model
+      is the single source the static export and the cockpit both render.
+  - id: shared-ui
+    what: >
+      inn/observatory.py — the intervention panel restructured into the required
+      sections: Controlled subject (NPC, AUTO/MANUAL badge, room/mode/state, and
+      whether the latest outward action was engine / manual / LLM-assisted), Engine
+      suggestion (READ-ONLY — read from personas[subject].action, never recomputed),
+      Latest intervention / causality (you-chose vs engine-would-have, route,
+      reactions caused), Intervention summary, and an LLM panel that shows a
+      graceful disabled state when no provider is configured. Timeline ribbons gain
+      subtle teal markers for overrides + a legend entry. Developer view adds
+      selected_by / route / LLM provenance; Observer view stays label-only. A
+      "static replay mode" vs "live cockpit" tag distinguishes the two deliverables.
+  - id: cockpit-console
+    what: >
+      observatory/build_bundle.py — the live console (cockpit only) now: defaults
+      the tick to the current playhead; offers AUTO/MANUAL; filters the target
+      dropdown to cast PRESENT with the subject at that tick (valid targets only,
+      no telepathy) with a clear hint when the subject is alone; a Suggest button
+      shows the engine's would-be action (read-only); Add validates needs-target;
+      Run with control calls run_live_controlled(profile, plan, seed, subject, mode,
+      interventions_json) for a deterministic re-run through the exact M-G path. The
+      default run_live / Verify-parity path is unchanged -> G2 parity preserved.
+      Both JS blobs pass `node --check`; the embedded boot Python compiles.
+  - id: llm-ui
+    what: >
+      The LLM (M-H) free-text box is browser-DISABLED by design (no provider/key in
+      Pyodide) and never faked; the UI shows "Natural language intervention is
+      optional and currently disabled" and the finite palette stays fully usable.
+      The LLM path is exercised from the CLI (say "<text>" -> confirm), unchanged.
+  - id: qa-tests-docs
+    what: >
+      tests/test_intervention_ui.py (10): model exposes intervention_ui/palette;
+      controlled run carries manual_override provenance + engine suggestion into the
+      model; llm_enabled follows env (False default / True when set); summary counts;
+      static export renders an intervention trace; cockpit index builds; valid-target
+      data derivable from per-tick presence; autonomous model unaffected. README gains
+      an "Intervention console in the Observatory (M-I)" subsection;
+      observatory/BROWSER_QA.md is the 15-step real-browser smoke checklist. Full
+      suite 149 green; build_site + build_bundle succeed; g2_reference.json SHA
+      unchanged (6a7404b6…1927573a).
+
+decisions:
+  - "UI is READ-ONLY over the model: it renders intervention_ui/interventions and
+     never recomputes engine behaviour or duplicates the palette/validation."
+  - "Cockpit uses the existing batch re-run model (queue overrides -> deterministic
+     re-run), not per-tick stepping — overrides stay replayable. Documented in QA."
+  - "Manual insult is shown as user_selected=insult + route, never as a spontaneous
+     outburst, even though it routes through the engine action `outburst`."
+
+deferred:
+  - "Real-browser automated smoke (Playwright) not added — the cockpit needs the
+     ~tens-of-MB Pyodide runtime; covered by a documented checklist + model/JS-syntax
+     tests instead."
+  - "Browser-side M-H (live LLM calls in Pyodide) intentionally not built — shown as
+     disabled in the browser; the CLI is the LLM path."
+  - "rest/seek_activity still omitted from the palette (no clean engine path; future
+     work needs an engine-side seam) — see [[g1-audit-handoff]] / registers/m_g_h.yaml."

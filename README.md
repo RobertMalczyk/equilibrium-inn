@@ -20,9 +20,10 @@ traceable texture. A constant brawl is a failure; a dead inn is a failure.
 > follow-through, Social Event Mapper Pack, two-profile split), **M-C**
 > (interactive CLI stepper), **M-D** (Observation Mode + the Living Inn
 > Observatory), **M-E** (baseline cast + regression harness), **M-F** (parity
-> button + GitHub Pages), **M-G** (Controlled Subject / Intervention Mode), and
-> **M-H** (optional LLM semantic input seam) are complete; **G0/G1/G2** have all
-> passed. Quantitative choices remain provisional. See the per-milestone logs in
+> button + GitHub Pages), **M-G** (Controlled Subject / Intervention Mode),
+> **M-H** (optional LLM semantic input seam), and **M-I** (intervention UI
+> integration into the Observatory) are complete; **G0/G1/G2** have all passed.
+> Quantitative choices remain provisional. See the per-milestone logs in
 > [`registers/`](registers/).
 
 ## What works today
@@ -216,6 +217,32 @@ The cockpit bundles the inn + the **pinned engine** read-only (a `.engine_commit
 sentinel is written into the *bundle copy* only — the engine checkout is never
 modified). Its visuals are fully embedded; the only network use is the **Pyodide
 runtime**, which loads from the official CDN by default.
+
+#### Intervention console in the Observatory (M-I)
+
+The Observatory surfaces M-G/M-H as a read-only **intervention console** — an
+observatory control panel, not an RPG HUD. The UI consumes the model's
+intervention fields (`intervention_ui`, `interventions`); it never recomputes
+engine behaviour. It shows the **controlled subject** (room, mode, observer-facing
+state, and whether the latest outward action was *engine-selected*, a *manual
+override*, or an *LLM-assisted* override), the **engine suggestion** (what the
+autonomous NPC would have done — read-only), the **action palette** (the same
+finite M-G actions; `rest`/`seek_activity` are intentionally absent), the **latest
+intervention** (you-chose vs engine-would-have, route, and the reactions it
+caused), a concise **summary**, and timeline markers (teal) for overrides.
+
+- **Live cockpit** (`observatory/index.html`): pick a subject, choose AUTO/MANUAL,
+  `Suggest`, select a *valid target* (only cast present with the subject at that
+  tick), queue overrides, and `Run with control` — a deterministic re-run through
+  the exact M-G path. The natural-language (M-H) box stays **disabled in the
+  browser** (no provider/key is available there); the finite palette is fully
+  functional.
+- **Static export**: labelled **“static replay mode”** — it *renders* any recorded
+  intervention trace (overrides, causality, markers) but offers no live controls.
+
+The optional LLM free-text seam is exercised from the **CLI** (`say "…"` →
+`confirm`); see *Optional LLM free-text seam (M-H)* above. A real-browser smoke
+checklist lives at [`observatory/BROWSER_QA.md`](observatory/BROWSER_QA.md).
 
 **Offline runtime (optional).** For a fully-offline cockpit, fetch the Pyodide
 runtime locally (it is **not** committed to git):

@@ -29,6 +29,7 @@ from dataclasses import asdict, dataclass
 
 import inn.metrics as M
 from inn.chronicle import event_line, who, why_chain
+from inn.intervention import ACTION_PALETTE
 
 # -- display thresholds (inn.yaml `observation`; defaults if absent) -----------
 # Pure annotation knobs: which value counts as "high" for a need/affect channel,
@@ -439,6 +440,30 @@ def report_intervention(records_manual: list[dict],
     return out
 
 
+def intervention_ui_model(records: list[dict], cfg, interventions: list[dict],
+                          incident_actions: tuple[str, ...]) -> dict:
+    """The Observatory's intervention descriptor (M-I): the finite action palette
+    (valid_actions), whether the optional LLM seam is enabled, the controlled
+    subject(s) seen in this run, and a concise intervention summary. Read-only —
+    the UI consumes this rather than recomputing engine behaviour or duplicating
+    the palette. `llm_enabled` reflects the environment of whoever built the model
+    (False in the browser/Pyodide cockpit, where no provider is configured)."""
+    from inn import llm_seam  # local import: optional seam, no engine deps
+    palette = [{"verb": v, "label": v.replace("_", " "),
+                "needs_target": e.needs_target, "route": e.route}
+               for v, e in ACTION_PALETTE.items()]
+    subjects = sorted({iv["subject"] for iv in interventions})
+    summary = None
+    if interventions:
+        r = report_intervention(records, None, [c.id for c in cfg.cast],
+                                incident_actions)
+        summary = {"n_overrides": r["n_overrides"], "by_action": r["by_action"],
+                   "targets": r["targets"], "incidents_after": r["incidents_after"],
+                   "llm_assisted": r["llm_assisted"]}
+    return {"palette": palette, "llm_enabled": llm_seam.enabled(),
+            "controlled_subjects": subjects, "summary": summary}
+
+
 # -- aggregate metrics (UI dashboard) -----------------------------------------
 
 def time_budget(records: list[dict], pid: str) -> dict:
@@ -665,6 +690,10 @@ def build_model(records: list[dict], cfg, meta: dict | None = None,
         "inputs": inputs,
         "reactions": reactions,
         "metrics": aggregate_metrics(records, cfg),
+        # M-I: always present so the UI can render the intervention console (the
+        # palette + LLM-enabled state) even before any override exists.
+        "intervention_ui": intervention_ui_model(records, cfg, interventions,
+                                                  inc_actions),
     }
     if interventions:
         model["interventions"] = interventions
