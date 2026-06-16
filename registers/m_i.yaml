@@ -56,6 +56,19 @@ done:
       observatory/BROWSER_QA.md is the 15-step real-browser smoke checklist. Full
       suite 149 green; build_site + build_bundle succeed; g2_reference.json SHA
       unchanged (6a7404b6…1927573a).
+  - id: corner-tests
+    what: >
+      tests/test_intervention_corner.py (26) — adversarial boundaries for review
+      before merge: telepathy/self/target-less validation; switching the controlled
+      subject mid-run; two manual acts on one tick (last wins, the discarded probe
+      never fires); overrides on the first and last ticks; every transduce-route
+      verb emitting its mapped event + both probe-route verbs; reaction attribution;
+      AUTO-only run leaves no overrides in the UI model vs manual-noop-only showing
+      the subject with zero overrides; mixed-route replay determinism; and LLM
+      mapping corners (fenced JSON accepted, non-object/missing-action/out-of-range/
+      below-threshold rejected, confirm-with-nothing, say-without-subject). Fakes
+      only — no real API calls. (Welf is never alone in this seed/plan, so the
+      "no valid target" path is covered via cross-room rejection.)
 
 decisions:
   - "UI is READ-ONLY over the model: it renders intervention_ui/interventions and
