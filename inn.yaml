@@ -6,14 +6,17 @@ meta:
   days: 3
 
 # Cast list order IS the contention tiebreak order (section 5).
+# `color` is DISPLAY-ONLY (M-J time plots) — never behaviour-shaping. Drawn from the
+# Observatory theme accents so the per-persona lines read native to the site; omit
+# it and the time-plots page falls back to a generated hue ramp.
 cast:
-  - {id: wojslaw, room_home: guest_room}
-  - {id: halgrim, room_home: common_room}
-  - {id: cichy, room_home: stable}
-  - {id: edda, room_home: kitchen}
-  - {id: welf, room_home: common_room}
-  - {id: lutek, room_home: yard}
-  - {id: branic, room_home: common_room}
+  - {id: wojslaw, room_home: guest_room, color: "#b5532e"}
+  - {id: halgrim, room_home: common_room, color: "#7c9e5e"}
+  - {id: cichy, room_home: stable, color: "#4655bf"}
+  - {id: edda, room_home: kitchen, color: "#d99a2b"}
+  - {id: welf, room_home: common_room, color: "#1f7a72"}
+  - {id: lutek, room_home: yard, color: "#9a4a26"}
+  - {id: branic, room_home: common_room, color: "#7d8bd6"}
 
 # Labels with no interior; valid event sources only.
 event_sources: [marta, player]

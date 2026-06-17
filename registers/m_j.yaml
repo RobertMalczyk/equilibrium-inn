@@ -1,0 +1,134 @@
+milestone: M-J (Time Plots — an engine-study instrument)
+state: IMPLEMENTED, on branch m-j-timeplots (NOT merged — awaiting user AUDIT).
+  Time Plots ship as a live TAB (subpage) of the Pyodide cockpit, charting the raw
+  interior-state trajectories of THE RUN THE OBSERVER IS WATCHING on the Observatory
+  tab (same live LiveSession) — so the observer reads the engine's dynamics directly:
+  the fast affect spike-and-vent around an incident and, on the same x-axis, the slow
+  permanent relational mark it leaves. Observability/rendering ONLY: reads the society
+  trace (hard rule 0.4); the only behaviour toggle is burst_overlay, opt-in and OFF by
+  default. Golden trace SHA + G2 parity reference + import contract intact. 217 tests
+  green (202 prior + 15 new: 9 timeplots, 6 scenario). Browser-verified (puppeteer +
+  system Chrome): cockpit Observatory↔Time-plots tab switch renders 10 facets from the
+  live run; incident-hover designation; Dump-scenario downloads input-only JSON; burst
+  checkbox + dump bridge present; 0 app console errors.
+updated: 2026-06-17
+
+revision-2026-06-17 (user steer): time plots must plot the LIVE cockpit run and be a
+  SUBPAGE of the cockpit (not a buried card, not a separate static page). Implemented
+  as a tab inside the single cockpit page (a separate .html would reboot Pyodide and
+  could not see the live run). The standalone static plots.html (3 canned protocols)
+  was DROPPED from the published site + landing button. The module's page()/export_html
+  remain as a developer/offline single-trace CLI export (not published).
+
+design: grilled & locked with the user 2026-06-17 (see registers/m_j_timeplots_plan.md
+  for the full decision tree). Headlines: incidents are the spine (overview strip +
+  brush/zoom focus, tiered markers); faceted small-multiples sharing ONE time-window
+  (7 high-signal facets open, 3 collapsed); full-res state series embedded (zoom must
+  stay sharp), relations sampled coarsely (28-42 h half-lives); x-axis Day/HH:MM with
+  raw tick in the hover readout; persona colors from inn.yaml cast[].color w/ generated
+  fallback; shared render layer in BOTH hosts (static page + cockpit); all three
+  protocols switchable on the static page.
+
+done:
+  - id: model+render
+    what: >
+      inn/timeplots.py — build_plot_model(records, cfg, meta) emits a compact,
+      self-contained model (full-res per-persona state series quantized to 3dp,
+      world room_tension, tiered incident markers from the transduction log with
+      provenance, night/rain spans, day boundaries, persona colors, and a relations
+      block split into moved-pairs series + a flat summary). The shared Canvas render
+      layer (PLOT_STYLE / plot_body() / PLOT_SCRIPT, exposed as window.TimePlots.render)
+      draws the overview strip (drag-to-zoom + click-to-focus an incident), the faceted
+      grid (min/max envelope decimation so spikes survive any zoom), a shared crosshair
+      + readout across open facets, a persona-mute legend, toolbar (Full run / Zoom out /
+      Prev-Next incident), and a collapsible relations section. page()/export_html()
+      build the standalone plots.html (multi-protocol, switchable). Reuses the
+      Observatory theme + asset pack for visual consistency. Pure over the trace.
+  - id: config-color
+    what: >
+      inn/config.py — CastMember gains an optional display-only `color` field
+      (never behaviour-shaping); inn.yaml sets 7 theme-derived colors. Verified the
+      golden trace_sha256 is unchanged (color is never read by the loop).
+  - id: cockpit-tab
+    what: >
+      observatory/build_bundle.py — the cockpit is now TWO subpages of the same live
+      session: a sticky tab bar (#tab_obs / #tab_plots) toggles #view_obs (the
+      Observatory) and #view_plots (the live Time Plots, container #tpc). tpShowView()
+      switches; the page includes PLOT_STYLE/PLOT_SCRIPT; the Python boot's _emit()
+      builds a plot model from the live trace each frontier change and pushes
+      window.TPMODEL; renderPlotsLive() draws it (only when the plots tab is visible,
+      with keepView so advancing the frontier doesn't reset the observer's zoom).
+      Reads s.records only — never re-runs / changes the sim, so G2 parity is unaffected.
+  - id: site
+    what: >
+      observatory/build_site.py — no standalone plots page (dropped per the user
+      steer); the cockpit (cockpit.html) carries the live Time Plots tab.
+      observatory/landing.html notes the two cockpit tabs (no separate button).
+  - id: tests
+    what: >
+      tests/test_timeplots.py (9) — model shape; tiered markers; moved-pairs relation
+      filter; color resolution (config + fallback); dev export embeds the render layer;
+      cockpit page wires the Time Plots tab; build_model pure over the trace +
+      import-contract clean; incident-designation hover path present; render JS
+      node --check (skipped if node absent).
+
+followups-2026-06-17 (user asks, planned then implemented):
+  - id: incident-hover
+    what: >
+      inn/timeplots.py — hovering an incident marker on the overview strip OR a facet
+      now designates it (tooltip: OUTBURST/social tier, Day HH:MM, tick, actor → target,
+      seen-as event, intensity, provoked_by) via incidentNear()/showIncidentTip(); facet
+      hover shows the incident when near a marker, else the per-persona readout. Pure
+      render; browser-verified (overview tooltip reads e.g. "OUTBURST … Branic → marta …").
+  - id: scenario-dump
+    what: >
+      NEW inn/scenario.py — dump_scenario() builds a LOSSLESS, INPUT-ONLY scenario
+      (embeds the full inn.yaml + sha, engine_commit, calibration_hashes, seed, plan,
+      n_ticks, profile, transducer_scale, richness_mults, burst_overlay, control,
+      ordered injected_events; explicitly NO trace / NO result SHA). replay_scenario()
+      materializes the embedded inn.yaml (write_bytes — no newline translation) and
+      re-runs the normal loop, returning the trace SHA for verification; refuses a
+      different engine pin / calibration / corrupt yaml. CLI: `python -m inn.scenario
+      replay <f> -o <dir>`. inn/live.py LiveSession tracks an `injected` log + exposes
+      dump_scenario(). Cockpit: ⤓ Dump scenario button to the RIGHT of ⟲ Return to live
+      frontier (per user) → downloads scenario_<profile>_<plan>_seed<seed>[_<subject>].json
+      via scenario_json() Python bridge. Browser-verified: dump is input-only (no
+      trace_sha256), reproduces the run.
+  - id: burst-toggle
+    what: >
+      burst_overlay threaded as an optional override through InnLoop -> run_session ->
+      LiveSession (None = inn.yaml default, ships false). Cockpit "advanced outburst"
+      checkbox (default off) flows to live_start; recorded in the session header AND the
+      scenario dump so an experiment with it ON is reproducible. VERIFIED: default == OFF
+      (golden trace_sha256 unchanged), ON != OFF (it changes dynamics). Tooltip carries
+      the M-B runaway warning.
+  - id: legend+hover-selector
+    what: >
+      inn/timeplots.py — (a) the persona legend now sits on a panel (background +
+      border + per-chip white pills) so names/colors are readable on parchment;
+      (b) a toolbar "highlight" selector (both auto / incident / values) lets the
+      observer choose what hover shows — incident designation, per-persona values, or
+      (default) both-depending-on-cursor. Same information, now selectable. Render-only.
+      tests/test_timeplots.py +1 (selector present + wired). 218 tests green.
+
+guardrails-held:
+  - golden trace_sha256 unchanged (display-only inn.yaml addition; loop never reads color).
+  - import contract: inn/timeplots.py imports no engine/eval internals.
+  - G2 parity surface untouched (the cockpit panel renders the trace, never alters it).
+  - engine repo untouched (read-only; no pin bump needed).
+
+deviations-from-plan:
+  - relations "show all pairs" toggle: implemented as moved-pairs time series + a flat
+    one-line summary of the unmoved directed relations (their constant value), rather
+    than embedding ~flat full series for every pair. Honest and far leaner; the moved
+    pairs are the engine-revealing ones. Revisit if full flat-pair series are wanted.
+
+open-questions:
+  - none blocking.
+
+audit-asks:
+  - AUDIT in the live cockpit: serve `observatory/_site` (or `observatory`), open
+    cockpit.html, wait for ready, click the "Time plots" tab. Review the design
+    rulings in m_j_timeplots_plan.md (note revision-2026-06-17: cockpit tab, not a
+    standalone page).
+  - On sign-off: merge m-j-timeplots to main.

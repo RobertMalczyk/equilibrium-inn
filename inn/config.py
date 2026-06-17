@@ -42,6 +42,7 @@ def deep_merge(a: dict, b: dict) -> dict:
 class CastMember:
     id: str
     room_home: str
+    color: str | None = None  # optional display color (M-J time plots); never behaviour-shaping
 
 
 @dataclass(frozen=True)
