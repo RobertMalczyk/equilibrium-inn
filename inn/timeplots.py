@@ -139,9 +139,13 @@ def _relations(records: list[dict], cast: list[str]) -> dict:
             "stride": RELATION_STRIDE, "n_samples": len(sampled)}
 
 
-def build_plot_model(records: list[dict], cfg, meta: dict | None = None) -> dict:
+def build_plot_model(records: list[dict], cfg, meta: dict | None = None,
+                     dt: float | None = None) -> dict:
     """A compact, self-contained model of a run's state trajectories for the time
-    plots. Pure read over the trace (hard rule 0.4)."""
+    plots. Pure read over the trace (hard rule 0.4).
+
+    `dt` (seconds per in-world tick) is recorded for the page's tick-resolution
+    readout; None when unknown (display metadata only — curves are unaffected)."""
     from inn.metrics import state_series
 
     cast = [c.id for c in cfg.cast]
@@ -192,6 +196,7 @@ def build_plot_model(records: list[dict], cfg, meta: dict | None = None) -> dict
         "cast": cast,
         "display_names": {c: c.capitalize() for c in cast},
         "colors": _resolve_colors(cfg),
+        "dt": dt,                       # seconds/tick (resolution readout); None if unknown
         "n": len(records),
         "ticks": ticks,
         "day": day,
@@ -278,10 +283,11 @@ def plot_body(root_id: str = "tp", with_selector: bool = True) -> str:
         <option value="values">values</option>
       </select></label>
     <span class="grow"></span>
+    <span class="hint" data-tp-dt></span>
     <span class="hint">Drag on the overview to zoom · click an incident marker to focus it</span>
   </div>
   <div class="ovwrap">
-    <div class="ovh">whole run — drag to set the window · ▌outburst ·│social event · night shaded · rain banded</div>
+    <div class="ovh">whole run — drag to set the window · ▌outburst ·│social event · night shaded · rain banded · x-axis: in-world time (Day HH:MM)</div>
     <canvas data-tp-ov width="1180" height="64"></canvas>
   </div>
   <div class="legend" data-tp-legend></div>
@@ -347,9 +353,10 @@ function facetArrays(f){const pm=TP.pm;
   return pm.cast.filter(p=>!TP.muted[p]).map(p=>({id:p,color:pm.colors[p],arr:pm.series[p][f.key]}));}
 function relColor(ch){return ch==='resentment'?'#b5532e':ch==='trust'?'#3d7a8a':ch==='respect'?'#7c9e5e':'#8a6a2e';}
 
+const AXIS_H=13;   // bottom strip reserved for the x-axis (in-world time) labels
 function drawFacet(cv,f){const {ctx,w,h}=fit(cv); const pm=TP.pm, lo=TP.lo, hi=TP.hi;
   ctx.clearRect(0,0,w,h);
-  const x0=2,y0=2,W=w-4,H=h-4;
+  const x0=2,y0=2,W=w-4,H=(h-4)-AXIS_H;   // H = plot area; the rest is the time axis
   bands(ctx,pm.night,lo,hi,x0,y0,W,H,'rgba(40,30,80,.07)');
   bands(ctx,pm.rain,lo,hi,x0,y0,W,H,'rgba(70,90,150,.10)');
   // y gridlines at 0 / .5 / 1 (or the relation range)
@@ -369,7 +376,23 @@ function drawFacet(cv,f){const {ctx,w,h}=fit(cv); const pm=TP.pm, lo=TP.lo, hi=T
     if(s.stride){ // relation series live on a coarser index grid -> map to ticks
       drawRelSeries(ctx,s.arr,s.stride,lo,hi,x0,y0,W,H,s.color,ymin,ymax);
     } else drawSeries(ctx,s.arr,lo,hi,x0,y0,W,H,s.color,ymin,ymax);});
+  drawTimeAxis(ctx,x0,y0+H,W,AXIS_H);   // x-axis in-world time scale for THIS window
   cv._f=f;
+}
+// x-axis time scale: evenly spaced Day HH:MM ticks across the current window. The
+// left label carries the day; interior labels are HH:MM (day shown again if it rolls).
+function drawTimeAxis(ctx,x0,yTop,W,H){const pm=TP.pm, lo=TP.lo, hi=TP.hi;
+  ctx.strokeStyle='rgba(120,110,90,.30)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x0,yTop+0.5);ctx.lineTo(x0+W,yTop+0.5);ctx.stroke();
+  ctx.fillStyle='#7c6f5d';ctx.font='9px Georgia';ctx.textBaseline='alphabetic';
+  const N=5; let lastDay=null;
+  for(let k=0;k<N;k++){const f=k/(N-1), i=Math.round(lo+f*(hi-lo));
+    const px=x0+f*W; ctx.strokeStyle='rgba(120,110,90,.30)';
+    ctx.beginPath();ctx.moveTo(px,yTop);ctx.lineTo(px,yTop+3);ctx.stroke();
+    const d=pm.day[i], lab=(d!==lastDay?('D'+d+' '):'')+hhmm(pm.mins[i]); lastDay=d;
+    ctx.textAlign=k===0?'left':k===N-1?'right':'center';
+    ctx.fillText(lab, k===0?x0:k===N-1?x0+W:px, yTop+11);}
+  ctx.textAlign='left';
 }
 // relation arrays are sampled every `stride` ticks; expand index space to ticks.
 function drawRelSeries(ctx,arr,stride,lo,hi,x0,y0,w,h,color,ymin,ymax){
@@ -402,6 +425,15 @@ function drawOverview(){const root=document.querySelector(TP.rootSel);
     ctx.strokeStyle=inc.tier==='incident'?'rgba(181,83,46,.9)':'rgba(169,118,47,.5)';
     ctx.lineWidth=inc.tier==='incident'?2:1;ctx.beginPath();
     ctx.moveTo(px,inc.tier==='incident'?0:H*0.35);ctx.lineTo(px,H);ctx.stroke();});
+  // whole-run x-axis time scale: HH:MM (with the day) every ~12 h along the bottom.
+  ctx.fillStyle='#6b5836';ctx.font='9px Georgia';ctx.textBaseline='alphabetic';
+  const HALF=Math.max(1,Math.round((pm.n-1)/(pm.days.length*2)));  // ~12h in ticks
+  let lastD=null;
+  for(let i=0;i<pm.n;i+=HALF){const px=i/(pm.n-1)*W;
+    ctx.strokeStyle='rgba(120,110,90,.28)';ctx.beginPath();ctx.moveTo(px,H-9);ctx.lineTo(px,H);ctx.stroke();
+    const d=pm.day[i], lab=(d!==lastD?('D'+d+' '):'')+hhmm(pm.mins[i]); lastD=d;
+    ctx.textAlign=i===0?'left':'center'; ctx.fillText(lab, i===0?2:px, H-1);}
+  ctx.textAlign='left';
   // the current window highlight
   const a=TP.lo/(pm.n-1)*W,b=TP.hi/(pm.n-1)*W;
   ctx.fillStyle='rgba(201,136,58,.16)';ctx.fillRect(a,0,Math.max(2,b-a),H);
@@ -579,6 +611,11 @@ function render(model,opts){opts=opts||{};
   TP.pm=model; TP.rootSel=model.__root||TP.rootSel||'#tp';
   if(!opts.keepView||TP.hi===0){TP.lo=0;TP.hi=model.n-1;}
   else {TP.hi=Math.min(TP.hi,model.n-1);TP.lo=Math.max(0,Math.min(TP.lo,TP.hi-4));}
+  // tick-resolution readout: seconds/tick + points/day + total points
+  const dtEl=document.querySelector(TP.rootSel+' [data-tp-dt]');
+  if(dtEl){const dt=model.dt, perDay=model.days&&model.days.length?Math.round(model.n/model.days.length):null;
+    dtEl.textContent=(dt?('tick ≈ '+dt.toFixed(dt<10?2:1)+' s · '):'')
+      +(perDay?(perDay+' ticks/day · '):'')+model.n+' points';}
   buildLegend(); buildFacets(); buildRelFacets(); wireOnce();
   drawOverview();
   // (re)draw on resize so canvases stay crisp/full-width
@@ -666,7 +703,11 @@ def export_html(trace_dirs, out_html, inn_yaml=None) -> Path:
     for name, d in trace_dirs.items():
         d = Path(d)
         records = load_records(d / "trace.jsonl.gz")
-        models[name] = build_plot_model(records, cfg, meta={"protocol": name,
+        dt = None                       # read the run's seconds/tick from session.json
+        sp = d / "session.json"
+        if sp.is_file():
+            dt = (json.loads(sp.read_text(encoding="utf-8")).get("layout") or {}).get("dt")
+        models[name] = build_plot_model(records, cfg, dt=dt, meta={"protocol": name,
                                         "source": str(d), "ticks": len(records)})
     out_html = Path(out_html)
     out_html.write_text(page(models), encoding="utf-8")

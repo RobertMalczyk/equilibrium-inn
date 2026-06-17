@@ -145,6 +145,17 @@ def test_render_has_hover_selector():
         assert mode in src
 
 
+# 7d — the model carries the tick resolution (dt); the render layer draws an
+#      in-world-time x-axis + a tick-resolution readout.
+def test_dt_readout_and_time_axis(tmp_path):
+    recs = _records(tmp_path)
+    assert TP.build_plot_model(recs, CFG, dt=120.45)["dt"] == 120.45
+    assert TP.build_plot_model(recs, CFG)["dt"] is None     # unknown -> None
+    src = TP.PLOT_SCRIPT
+    assert "drawTimeAxis" in src and "ticks/day" in src and "tick ≈" in src
+    assert "data-tp-dt" in TP.plot_body()
+
+
 # 8 — the shared render JS is syntactically valid (skipped if node is absent).
 def test_render_js_syntax(tmp_path):
     node = shutil.which("node")

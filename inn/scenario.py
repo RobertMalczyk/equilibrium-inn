@@ -35,6 +35,7 @@ def dump_scenario(cfg: InnConfig, *, seed: int, probe_plan: str, n_ticks: int,
                   profile: str | None = None, transducer_scale: float | None = None,
                   richness_mults: dict | None = None,
                   burst_overlay: bool | None = None,
+                  resolution_factor: float = 1.0,
                   control: ControlState | None = None,
                   injected_events: list[dict] | None = None,
                   inn_yaml_path: str | Path | None = None) -> dict:
@@ -61,6 +62,7 @@ def dump_scenario(cfg: InnConfig, *, seed: int, probe_plan: str, n_ticks: int,
         "transducer_scale": transducer_scale,
         "richness_mults": richness_mults,
         "burst_overlay": burst_overlay,
+        "resolution_factor": resolution_factor,
         "control": ({"subject": control.subject, "mode": control.mode}
                     if control is not None and control.subject else None),
         "injected_events": list(injected_events or []),
@@ -101,7 +103,8 @@ def replay_scenario(scenario: dict | str | Path, out_dir: str | Path,
         richness_mults=scenario.get("richness_mults"),
         n_ticks=scenario["n_ticks"], profile=scenario.get("profile"),
         control=control, interventions=scenario.get("injected_events"),
-        burst_overlay=scenario.get("burst_overlay"))
+        burst_overlay=scenario.get("burst_overlay"),
+        resolution_factor=scenario.get("resolution_factor", 1.0))
 
 
 def main(argv: list[str] | None = None) -> None:

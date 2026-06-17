@@ -394,7 +394,28 @@ BODY = """
 </div>
 """
 
-SCRIPT = r"""
+# Pure, DOM-free playback math (M-K) so it is unit-testable without a browser
+# (tests/test_playback_js.py runs these under node). Kept separate from the rest of
+# SCRIPT precisely so the at-end / rate logic can be tested in isolation — the bug
+# class that slipped through "code-present" assertions.
+PLAYBACK_JS = r"""
+// One play-timer fire: advance the playhead by the real-time rate (ticksPerSec),
+// carrying the fractional remainder in `acc`; clamp at the last frame and report
+// `done`. ticksPerSec = PLAY_SPEED / PLAY_DT  (1x = real-time: 1 tick per dt sec).
+function playAdvance(frame, len, acc, ticksPerSec, periodMs){
+  acc += ticksPerSec*(periodMs/1000);
+  const adv=Math.floor(acc); acc-=adv;
+  let f=frame+adv, done=false;
+  if(len>0 && f>=len-1){ f=len-1; done=true; }
+  return {frame:f, acc:acc, adv:adv, done:done};
+}
+// On PRESSING play: if the head is already at the end, restart from 0 so play is
+// never a no-op (the dead-on-arrival regression: a finished run leaves frame at the
+// last tick, and a clamp-at-end loop would stop instantly). Else resume in place.
+function playStartFrame(frame, len){ return (len>0 && frame>=len-1) ? 0 : frame; }
+"""
+
+SCRIPT = PLAYBACK_JS + r"""
 const MODE_COLOR={idle:'#c9b48f',seeking:'#d99a2b',busy:'#7c9e5e',cooldown:'#bd8a5a',sleep:'#4655bf'};
 const MOOD_COLOR={calm:'#8fae6e',focused:'#7c9e5e',bored:'#d9c24a',tired:'#bd8a5a',
   irritated:'#b5532e',resting:'#7d8bd6',sleeping:'#4655bf'};
@@ -681,6 +702,19 @@ function select(p){selected=p;renderScene();renderCards();renderWhy();}
 function render(){renderHeader();renderScene();renderCards();renderStream();renderMetrics();renderWhy();renderInterventions();drawPlayhead();
   if(window.afterRender)window.afterRender();}  // M-I: live cockpit frontier/history hook (noop in static export)
 function step(){frame=(frame+1)%MODEL.ticks.length;$('scrub').value=frame;render();}
+// M-K speed-aware playback: when the cockpit sets window.PLAY_SPEED (multiplier) +
+// window.PLAY_DT (seconds/tick), advance at PLAY_SPEED game-seconds per real-second
+// (1x = real-time), accumulating fractional ticks; stop at the end. With neither set
+// (the static export) this is never used — the default 90ms/frame step() runs.
+let _playAcc=0; const _PLAY_PERIOD=120;
+function _playFrame(){
+  const S=window.PLAY_SPEED, dt=window.PLAY_DT;
+  if(!(S&&dt)){step();return;}
+  const r=playAdvance(frame, MODEL.ticks.length, _playAcc, S/dt, _PLAY_PERIOD);
+  _playAcc=r.acc;
+  if(r.adv>0){frame=r.frame; $('scrub').value=frame; render();}
+  if(r.done && window.stopPlay)window.stopPlay();
+}
 
 function init(){
   if(asset('equilibrium_observatory_emblem.svg')){$('emblem').src=asset('equilibrium_observatory_emblem.svg');
@@ -700,9 +734,17 @@ function init(){
     e.target.textContent=dev?'Observer view':'Developer view';renderCards();};
   const hb=$('hltoggle'); hb.classList.toggle('on',hilite);
   hb.onclick=e=>{hilite=!hilite;e.target.classList.toggle('on',hilite);renderStream();};
+  // window.stopPlay lets the speed-aware loop end cleanly when it reaches the last frame.
+  window.stopPlay=()=>{playing=false;clearInterval(timer);
+    const b=$('play'); if(b){b.classList.remove('on');b.textContent='▶ play';}};
   $('play').onclick=e=>{playing=!playing;e.target.classList.toggle('on',playing);
     e.target.textContent=playing?'❚❚ pause':'▶ play';
-    if(playing)timer=setInterval(step,90);else clearInterval(timer);};
+    if(playing){
+      // restart from the top if we're parked at the end, so play always animates
+      frame=playStartFrame(frame, MODEL.ticks.length); $('scrub').value=frame; _playAcc=0;
+      const speedMode=!!(window.PLAY_SPEED&&window.PLAY_DT);
+      timer=setInterval(speedMode?_playFrame:step, speedMode?_PLAY_PERIOD:90); render();
+    } else clearInterval(timer);};
   renderCycle(); buildRibbons(); render();
 }
 if(window.MODEL) init();

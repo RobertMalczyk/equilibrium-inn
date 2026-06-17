@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from inn.config import InnConfig, load_inn_config
-from inn.engine_surface import ENGINE_ROOT, PINNED_COMMIT, believable_day_layout
+from inn.engine_surface import ENGINE_ROOT, PINNED_COMMIT
 from inn.intervention import ControlState, make_intervention
 from inn.loop import InnLoop
 from inn.trace import TraceWriter
@@ -44,19 +44,21 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                 profile: str | None = None,
                 control: ControlState | None = None,
                 interventions: list[dict] | None = None,
-                burst_overlay: bool | None = None) -> dict:
+                burst_overlay: bool | None = None,
+                resolution_factor: float = 1.0) -> dict:
     """Run one session; write session.json + trace.jsonl.gz; return the header
     (including the resulting trace sha256).
 
     M-G: pass `control` (a ControlState naming the manually-controlled subject)
     and `interventions` (an ordered list of replayable injected-event dicts:
     {t, subject, verb, target}). These are part of the determinism tuple — the
-    same control + interventions reproduce the identical trace SHA."""
+    same control + interventions reproduce the identical trace SHA.
+
+    M-K: `resolution_factor` refines the tick (R>1 => finer dt, more ticks for the
+    same 3 days, real-time trajectory preserved). R=1.0 (default) is byte-identical."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     seed = cfg.g0["seed"] if seed is None else seed
-    layout = believable_day_layout()
-    n_ticks = n_ticks or cfg.days * layout["day_ticks"]
 
     writer = TraceWriter(out_dir / "trace.jsonl.gz")
     loop = InnLoop(cfg, seed=seed, probe_plan=probe_plan, trace=writer,
@@ -64,7 +66,12 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                    richness_mults=richness_mults,
                    persona_loader=persona_loader,
                    profile=profile, control=control,
-                   burst_overlay=burst_overlay)
+                   burst_overlay=burst_overlay,
+                   resolution_factor=resolution_factor)
+    # layout/n_ticks come from the loop's clock so they track the (refined) dt.
+    layout = {"dt": loop.clock.dt, "day_ticks": loop.clock.day_ticks,
+              "waking_ticks": loop.clock.waking_ticks}
+    n_ticks = n_ticks or cfg.days * loop.clock.day_ticks
     for iv in (interventions or []):
         loop.queue_intervention(
             iv["t"], make_intervention(iv["verb"], iv.get("target"),
@@ -83,6 +90,7 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
         "richness_mults": richness_mults,
         "profile": profile,
         "burst_overlay": loop.burst_overlay,   # resolved (incl. the inn.yaml default)
+        "resolution_factor": loop.resolution_factor,   # M-K tick refinement (1.0 = canonical)
         "layout": {k: layout[k] for k in ("dt", "day_ticks", "waking_ticks")},
         "controlled_subject": control.subject if control is not None else None,
         "controlled_mode": control.mode if control is not None else None,
@@ -115,4 +123,5 @@ def replay(session_path: str | Path, inn_yaml: str | Path,
                        n_ticks=header["n_ticks"],
                        profile=header.get("profile"),
                        control=control, interventions=interventions,
-                       burst_overlay=header.get("burst_overlay"))
+                       burst_overlay=header.get("burst_overlay"),
+                       resolution_factor=header.get("resolution_factor", 1.0))

@@ -100,6 +100,8 @@ function profileVal(){return (document.getElementById('c_profile')||{}).value||'
 function planVal(){return (document.getElementById('c_plan')||{}).value||'control';}
 function seedVal(){return parseInt((document.getElementById('c_seed')||{}).value||'7',10);}
 function burstVal(){return !!(document.getElementById('c_burst')||{}).checked;}
+function resVal(){return parseFloat((document.getElementById('c_res')||{}).value||'1');}
+function speedVal(){return parseFloat((document.getElementById('c_speed')||{}).value||'1');}
 
 // ---- M-I LIVE-FRONTIER cockpit ------------------------------------------------
 // The observer influences the world ONLY at the live frontier (the latest computed
@@ -213,7 +215,7 @@ async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
   setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
   try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
-        subject||'',mode||'auto',initial,burstVal());
+        subject||'',mode||'auto',initial,burstVal(),resVal());
     setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
   }catch(e){console.error(e); setStatus('live start failed: '+e);}
 }
@@ -255,6 +257,8 @@ function buildControls(){
     <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
     <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
     <label title="Advanced/experimental: flip the engine's calibrated burst overlay (latch/escalation/extinction) ON. Ships OFF — in the coupled 7-NPC room it can amplify to runaway (see M-B). For experiments only; recorded in the scenario so it stays reproducible.">advanced outburst <input id="c_burst" type="checkbox"></label>
+    <label title="Tick resolution: finer dt = more ticks for the same 3 days = smoother plots. The real-time trajectory is preserved (engine resolution_factor). 120s = canonical (byte-identical); finer dt is a new operating point. Heavier (8x ticks at 15s).">resolution <select id="c_res"><option value="1">120 s (canonical)</option><option value="4">30 s</option><option value="8">15 s</option></select></label>
+    <label title="Playback speed. 1x = real-time (one tick per dt real-seconds); higher = faster. At the 120s default even 20x is slow, so high multipliers (up to 200x) make play watchable; at finer dt lower ones suffice. Preserves the 3 game-days as the unit being traversed. Playback only — no effect on dynamics.">speed <select id="c_speed"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option><option value="8">8x</option><option value="20">20x</option><option value="50">50x</option><option value="100">100x</option><option value="200" selected>200x</option></select></label>
     <button id="c_run" disabled title="Compute the full 3-day, 7-NPC autonomous run in-browser and review it (read-only history). To intervene, use Start live intervention below.">Review autonomous run</button>
     <span class="grow"></span>
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
@@ -274,6 +278,9 @@ function buildControls(){
       +`<b>Verify parity</b> checks Pyodide matches CPython.`;};
   document.getElementById('c_profile').onchange=refresh;
   document.getElementById('c_plan').onchange=refresh;
+  // M-K: the speed selector drives the shared real-time playback loop live.
+  window.PLAY_SPEED=speedVal();
+  document.getElementById('c_speed').onchange=()=>{window.PLAY_SPEED=speedVal();};
   refresh();
 }
 function pstat(t,color){const s=document.getElementById('p_status');
@@ -352,17 +359,11 @@ zipfile.ZipFile(io.BytesIO(await resp.bytes())).extractall(".")
 root = os.getcwd()
 if root not in sys.path: sys.path.insert(0, root)
 from inn.config import load_inn_config
-from inn.engine_surface import believable_day_layout
 from inn.live import LiveSession
 import inn.observe as O
 import inn.timeplots as TP
 import js
 CFG = load_inn_config("inn.yaml")
-DAY = believable_day_layout()["day_ticks"]
-TOTAL = CFG.days*DAY
-HOUR = max(1, round(DAY/24))          # ticks per in-world hour
-SEED_TICKS = 2*HOUR                    # seed the first ~2 hours of day 1 so there
-                                       # is a scene to act on; the rest is the user's
 # M-I live-frontier: ONE persistent session. The observer acts only at the live
 # frontier (inn.live.LiveSession — the same class the CPython tests pin); the
 # future emerges from that new state. No future-queue.
@@ -376,17 +377,23 @@ def _emit(first=False):
     js.window.CONTROL_MODE = s.mode
     # M-J: the SAME render layer as the static plots.html, fed the live trace.
     # Observability only — reads s.records, never re-runs/changes the sim.
-    pm = TP.build_plot_model(s.records, CFG, meta={"subtitle":"live · cockpit"})
+    pm = TP.build_plot_model(s.records, CFG, dt=float(s.loop.clock.dt),
+                             meta={"subtitle":"live · cockpit"})
     pm["__root"] = "#tpc"
     js.window.TPMODEL = js.JSON.parse(json.dumps(pm))
+    js.window.PLAY_DT = float(s.loop.clock.dt)   # M-K: seconds/tick for real-time playback
     if first: js.init()       # one-time wiring (scrub/play/dev handlers)
     js.liveRefresh()          # follow the frontier + (re)build the live console
-def live_start(profile, plan, seed, subject, mode, initial, burst=False):
-    init = int(initial)
-    init = (SEED_TICKS if init <= 0 else init)       # seed ~2 h of day 1, rest is live
-    SESS["s"] = LiveSession(CFG, profile, plan, int(seed), TOTAL,
+def live_start(profile, plan, seed, subject, mode, initial, burst=False, resolution=1.0):
+    # M-K: resolution refines dt; total ticks derive from the refined clock so the
+    # 3 game-days hold. SEED_TICKS (~2 h of day 1) is computed from the refined day.
+    SESS["s"] = LiveSession(CFG, profile, plan, int(seed), None,
                             subject=(subject or None), mode=(mode or "auto"),
-                            burst_overlay=bool(burst))
+                            burst_overlay=bool(burst),
+                            resolution_factor=float(resolution))
+    day = SESS["s"].loop.clock.day_ticks
+    init = int(initial)
+    init = (2*max(1, round(day/24)) if init <= 0 else init)
     SESS["s"].advance(init)
     _emit(first=True)
 def scenario_json():

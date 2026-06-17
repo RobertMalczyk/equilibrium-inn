@@ -54,10 +54,10 @@ class LiveSession:
     """
 
     def __init__(self, cfg: InnConfig, profile: str | None, plan: str, seed: int,
-                 total: int, subject: str | None = None, mode: str = "auto",
-                 burst_overlay: bool | None = None):
+                 total: int | None = None, subject: str | None = None,
+                 mode: str = "auto", burst_overlay: bool | None = None,
+                 resolution_factor: float = 1.0):
         self.cfg = cfg
-        self.total = int(total)
         self.mem = _Records()
         # Always construct WITH a ControlState (subject may be None). With
         # subject=None the loop never matches the controlled branch, so the run
@@ -66,7 +66,11 @@ class LiveSession:
         self.control = ControlState(subject, mode)
         self.loop = InnLoop(cfg, seed=int(seed), probe_plan=plan, trace=self.mem,
                             profile=profile, control=self.control,
-                            burst_overlay=burst_overlay)
+                            burst_overlay=burst_overlay,
+                            resolution_factor=resolution_factor)
+        # total ticks; default = the 3 game-days at the (refined) dt, so a finer
+        # resolution_factor automatically means more ticks for the same 3 days (M-K).
+        self.total = int(total) if total is not None else cfg.days * self.loop.clock.day_ticks
         self.frontier = 0
         # Replayable session inputs (CLAUDE.md M-J scenario dump): the construction
         # params + an ordered log of applied manual overrides. Inputs ONLY — never
@@ -125,6 +129,7 @@ class LiveSession:
         return dump_scenario(
             self.cfg, seed=self.seed, probe_plan=self.plan, n_ticks=self.total,
             profile=self.profile, burst_overlay=self.loop.burst_overlay,
+            resolution_factor=self.loop.resolution_factor,
             control=ctrl, injected_events=self.injected, inn_yaml_path=inn_yaml_path)
 
     def release(self) -> None:
