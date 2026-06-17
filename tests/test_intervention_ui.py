@@ -113,7 +113,7 @@ def test_cockpit_index_builds():
     assert "buildLiveConsole" in html and "live_intervene" in html
     assert "from inn.live import LiveSession" in html
     assert "present_with" in html              # execution-time target validation
-    assert "Apply now and continue" in html    # frontier action, not a future queue
+    assert "Apply intervention" in html        # frontier action, not a future queue
     assert "Return to live frontier" in html   # history is read-only
     # the obsolete future-queue UX is gone
     assert "Re-run with queued" not in html

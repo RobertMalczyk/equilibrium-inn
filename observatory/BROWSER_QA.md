@@ -1,12 +1,36 @@
 # Observatory — browser smoke checklist (M-I)
 
-A manual, real-browser smoke test for the intervention UI. The cockpit runs the
-inn in-browser under Pyodide (tens of MB), so this is a documented checklist
-rather than an automated headless test. The non-browser layers (model fields, the
-static export, the cockpit page build, and the cockpit/shared JS syntax) are
-covered by `tests/test_intervention_ui.py`, `tests/test_intervention_frontier.py`
-(incl. the live-frontier == batch equivalence and execution-time target
-validation), and `node --check` in CI.
+A real-browser smoke test for the live-frontier intervention UI. The cockpit runs
+the inn in-browser under Pyodide, so CI relies on a documented checklist plus the
+non-browser layers (model fields, static export, cockpit page build, JS
+`node --check`) covered by `tests/test_intervention_ui.py`,
+`tests/test_intervention_frontier.py` (incl. live-frontier == batch equivalence and
+execution-time target validation).
+
+## Last automated headless run — 2026-06-17 (Chrome, puppeteer-core) — 11/11 PASS, 0 console errors
+
+Driven against `python -m http.server -d observatory` with the system Chrome
+(headless). All checks below were exercised programmatically and passed:
+
+| Check | Result |
+|---|---|
+| Pyodide boots + autonomous run renders the console | PASS |
+| `Start live intervention` (welf, MANUAL) starts at a mid-run frontier | PASS |
+| Target dropdown lists only co-located cast (`["wojslaw"]` at the seed frontier) | PASS |
+| `LIVE FRONTIER — interventions enabled` tag visible; Apply enabled | PASS |
+| `Apply intervention` applies (manual_override recorded, target wojslaw) | PASS |
+| Teal marker present + interactive (canvas cursor=pointer, onclick+onmousemove wired) | PASS |
+| Hovering a marker pops the note tooltip | PASS |
+| Scrub to history → action/Apply/Advance disabled, `REVIEWING HISTORY` tag, Return visible | PASS |
+| `⟲ Return to live frontier` re-enables controls, `LIVE FRONTIER` tag returns | PASS |
+| No app console errors (favicon request suppressed via `<link rel=icon href='data:,'>`) | PASS |
+
+Reproduce: install `puppeteer-core` (uses the system Chrome — no Chromium
+download), serve `observatory/`, and drive the page (select `#iv_subj`, `#iv_mode`,
+click `#iv_start` / `#iv_apply`, scrub `#scrub`, click `#iv_return`), asserting on
+`liveInfo()` / `window.MODEL.interventions` / the `#iv_live` state tag. Note: `LIVE`
+is a script-lexical `let` (not on `window`); read frontier state via the global
+`liveInfo()` instead.
 
 This stays an **observatory, not a game**: there are no quests, goals, score,
 inventory, progression, win/loss, or combat — only observation, controlled

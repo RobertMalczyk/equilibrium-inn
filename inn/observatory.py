@@ -255,6 +255,11 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .frontpct{font-size:11px;color:#1f6f72;font-variant-numeric:tabular-nums;white-space:nowrap}
 .livehint{font-size:12px;color:var(--muted);margin-top:2px}
 .livehint b{color:#1f6f72}
+.statetag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;
+  padding:3px 11px;border-radius:7px;text-transform:uppercase}
+.statetag.live{background:#1f6f72;color:#eafdff;box-shadow:0 0 0 3px rgba(42,154,160,.22)}
+.statetag.hist{background:#8a6a2e;color:#fff5e2;box-shadow:0 0 0 3px rgba(169,118,47,.20)}
+.statetag.end{background:#6b5836;color:#f3e9d2}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -653,9 +658,10 @@ function renderInterventions(){const iv=MODEL.interventions||[]; const ui=MODEL.
       +'confirmation before it runs through the manual path.</div>'
       +'<div class="sub">(free-text box appears in the CLI; in the browser cockpit '
       +'it stays disabled — no provider/key is available there.)</div>'
-    : '<span class="sub">Natural language intervention is optional and currently '
-      +'disabled. The finite action palette above is fully usable. To enable it set '
-      +'EQUILIBRIUM_INN_LLM_PROVIDER (CLI only).</span>';
+    : '<span class="sub"><b>Browser cockpit uses safe action buttons.</b> '
+      +'Natural-language mapping is available in the CLI '
+      +'(set EQUILIBRIUM_INN_LLM_PROVIDER, then <code>say "…"</code> → <code>confirm</code>). '
+      +'This is intentional — no provider/key runs in the browser.</span>';
 
   // F-feed. The override log (newest in view, up to the playhead).
   const shown=overrides.filter(x=>x.t<=cur);
@@ -714,6 +720,7 @@ def page(model: dict, assets: dict[str, str] | None = None,
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<link rel='icon' href='data:,'>"  # suppress the browser favicon request (no 404)
         "<title>Living Inn Observatory</title>"
         "<style>" + STYLE + "</style><style>" + _asset_css(assets) + "</style></head>"
         "<body>" + BODY +

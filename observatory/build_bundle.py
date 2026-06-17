@@ -123,21 +123,26 @@ function buildLiveConsole(){
     <label title="AUTO: the engine drives. MANUAL: your action replaces the outward action at the frontier (silent on ticks you don't act).">Mode <select id="iv_mode"><option value="auto"${info.mode!=='manual'?' selected':''}>AUTO — observe</option><option value="manual"${info.mode==='manual'?' selected':''}>MANUAL — you act</option></select></label>
     <label title="The outward action — finite, engine-compatible palette.">Manual intervention <select id="iv_action">${palOpts}</select></label>
     <label title="Valid targets only — cast co-located with the subject at the live frontier.">Target <select id="iv_target"></select></label>
-    <button id="iv_apply" title="Route this action through the normal world path at the live frontier, then continue.">Apply now and continue</button>
-    <button id="iv_adv" title="Advance the live simulation forward without acting.">Advance ▶</button>
+    <button id="iv_apply" title="Route this action through the normal world path at the live frontier, then advance.">Apply intervention</button>
+    <label title="How many ticks the live simulation advances right after your action, so the world can respond (8 ticks ≈ 16 min).">then advance <input id="iv_advn" type="number" min="1" max="120" value="8" style="width:52px"> ticks</label>
+    <button id="iv_adv" title="Advance the live simulation ~1 in-world hour without acting.">Advance 1 h ▶</button>
     <button id="iv_suggest" title="What the engine would do for this subject (read-only).">Engine would…</button>
-    <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live session</button>
-    <button id="iv_return" style="display:none" title="Jump the playhead back to the live frontier to intervene.">Return to live frontier</button>
+    <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live intervention</button>
+    <button id="iv_return" style="display:none" title="Jump the playhead back to the live frontier to intervene.">⟲ Return to live frontier</button>
     <div style="flex-basis:100%" id="iv_live" class="sub"></div>
     <div style="flex-basis:100%" id="iv_hint" class="sub"></div>`;
   const $i=id=>document.getElementById(id);
+  const subjRoom=()=>{const t=window.MODEL.ticks[window.FRONTIER||0]||window.MODEL.ticks[window.MODEL.ticks.length-1]||{};
+    return fmt(((t.personas||{})[info.subject]||{}).room||'their room');};
   const refreshTargets=()=>{
     const present=livePresent();
     const pe=((window.MODEL.intervention_ui||{}).palette||[]).find(e=>e.verb===$i('iv_action').value)||{needs_target:true};
     $i('iv_target').innerHTML=(pe.needs_target?'':'<option value="">(no target)</option>')
       +present.map(p=>`<option value="${p}">${nm(p)}</option>`).join('');
     if(pe.needs_target&&!present.length)$i('iv_hint').textContent=
-      `${nm(info.subject||'the subject')} is alone at the frontier; targeted actions are disabled — Advance ▶ to a gathering, or pick observe.`;
+      info.subject
+        ?`No valid target: ${nm(info.subject)} is alone in the ${subjRoom()}. Advance until someone enters the same room (or pick a no-target action like observe).`
+        :`Pick a controlled subject first, then a co-located target.`;
     else $i('iv_hint').textContent='';};
   $i('iv_subj').onchange=()=>{const v=$i('iv_subj').value;
     if(v)LIVE.take_control(v,$i('iv_mode').value); else LIVE.release();
@@ -149,7 +154,8 @@ function buildLiveConsole(){
   $i('iv_suggest').onclick=()=>{$i('iv_hint').innerHTML=
     `Engine would select for ${nm(info.subject||'the subject')}: <b>${fmt(liveEngineWould()||'neutral')}</b> `
     +`<span class="sub">— read-only, what the autonomous NPC would do. Not forced.</span>`;};
-  $i('iv_apply').onclick=()=>doIntervene($i('iv_action').value,$i('iv_target').value||null);
+  $i('iv_apply').onclick=()=>doIntervene($i('iv_action').value,$i('iv_target').value||null,
+    parseInt(($i('iv_advn')||{}).value||'8',10));
   $i('iv_adv').onclick=()=>liveAdvance(ADV_STEP);
   $i('iv_return').onclick=()=>{frame=window.FRONTIER||0;
     const sc=$('scrub'); if(sc)sc.value=frame; render();};
@@ -178,23 +184,31 @@ function updateLiveControls(){
   // a slim teal progress bar: how much of the 3 days the live frontier has reached.
   const pct=info.total?Math.round(100*(info.frontier||0)/info.total):0;
   const bar=`<div class="frontwrap"><div class="frontbar"><span style="width:${pct}%"></span></div>`
-    +`<span class="frontpct">${pct}% of the 3 days written</span></div>`;
-  if(!atFrontier){live.innerHTML=`<b>Reviewing history</b> (day ${tk.day} ${tk.clock}). `
-    +`Controls are disabled. <b>Return to live frontier</b> to intervene.`+bar;}
-  else if(info.at_end){live.innerHTML='<b>End of run.</b> All three days are written '
-    +'— scrub to review, or <b>Start live session</b> to intervene mid-run.'+bar;}
-  else{live.innerHTML=`<b>LIVE</b> — frontier at day ${tk.day} ${tk.clock}.`+bar
-    +`<div class="livehint">The first ~2 hours are seeded so there's a scene to act on. `
-    +`<b>The rest of the 3 days is yours to write</b> — `
-    +(info.subject?(info.mode==='manual'
-        ?`pick an action + target and <b>Apply now and continue</b>, or <b>Advance ▶</b>.`
-        :`AUTO lets the engine drive; switch to <b>MANUAL</b> to intervene, or <b>Advance ▶</b>.`)
-      :`pick a <b>controlled subject</b> to intervene, or <b>Advance ▶</b> to watch.`)
-    +`</div>`;}
+    +`<span class="frontpct">${pct}% of the simulation computed</span></div>`;
+  // An impossible-to-miss state tag: live (interventions enabled) vs history (disabled).
+  if(!atFrontier){
+    live.innerHTML=`<span class="statetag hist">REVIEWING HISTORY — interventions disabled</span>`
+      +`<div class="livehint">Viewing day ${tk.day} ${tk.clock} (before the live frontier). `
+      +`Use <b>⟲ Return to live frontier</b> to intervene again.</div>`+bar;}
+  else if(info.at_end){
+    live.innerHTML=`<span class="statetag end">END OF RUN — all ${info.total} ticks computed</span>`
+      +`<div class="livehint">Scrub to review, or <b>Start live intervention</b> to drive a fresh mid-run frontier.</div>`+bar;}
+  else{
+    live.innerHTML=`<span class="statetag live">LIVE FRONTIER — interventions enabled</span>`
+      +` <span class="sub">day ${tk.day} ${tk.clock}</span>`+bar
+      +`<div class="livehint">The first ~2 hours are seeded so there is a scene to act on. `
+      +`The remaining simulation will unfold from your interventions. `
+      +(info.subject?(info.mode==='manual'
+          ?`<b>Manual mode holds ${nm(info.subject)}'s outward action unless you act. `
+            +`Switch to AUTO to let the engine drive again.</b> `
+            +`Pick an action + target and <b>Apply intervention</b>, or <b>Advance 1 h ▶</b>.`
+          :`AUTO lets the engine drive ${nm(info.subject)}; switch to <b>MANUAL</b> to intervene, or <b>Advance 1 h ▶</b>.`)
+        :`Pick a <b>controlled subject</b> to intervene, or <b>Advance 1 h ▶</b> to watch.`)
+      +`</div>`;}
 }
 async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
-  setStatus('starting live session…'); await new Promise(r=>setTimeout(r,20));
+  setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
   try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
         subject||'',mode||'auto',initial);
     setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
@@ -206,10 +220,10 @@ async function liveAdvance(n){
   try{ await PY.globals.get('live_advance')(n); setStatus('live · frontier'); }
   catch(e){console.error(e); setStatus('advance failed: '+e);}
 }
-async function doIntervene(verb,target){
+async function doIntervene(verb,target,adv){
   if(!LIVE)return;
   setStatus('intervening at the frontier…'); await new Promise(r=>setTimeout(r,10));
-  try{ const err=await PY.globals.get('live_intervene')(verb,target||'');
+  try{ const err=await PY.globals.get('live_intervene')(verb,target||'',adv||8);
     if(err){const h=document.getElementById('iv_hint'); if(h)h.textContent=err;
       setStatus('live · frontier');}
     else setStatus('live · intervention applied');
@@ -221,7 +235,7 @@ function buildControls(){
   c.innerHTML=`<label title="The inn's character — which behavioural profile the cast runs under.">profile <select id="c_profile">${opts(PROFILES,PROFILE_DESC)}</select></label>
     <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
     <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
-    <button id="c_run" disabled title="Compute the full 3-day, 7-NPC run in-browser and review it (read-only history). To intervene, use Start live session below.">Run full simulation</button>
+    <button id="c_run" disabled title="Compute the full 3-day, 7-NPC autonomous run in-browser and review it (read-only history). To intervene, use Start live intervention below.">Review autonomous run</button>
     <span class="grow"></span>
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
     <span id="p_status" class="sub">parity: idle</span>
@@ -235,8 +249,8 @@ function buildControls(){
     document.getElementById('c_help').innerHTML=
       `<b>profile</b> ${pf}: ${PROFILE_DESC[pf]} · <b>protocol</b> ${pl}: ${PLAN_DESC[pl]} `
       +`· <b>seed</b>: deterministic — same settings reproduce the same run. `
-      +`<b>Run full simulation</b> computes the whole run to review; `
-      +`<b>Start live session</b> (below) drives a live frontier you can intervene at; `
+      +`<b>Review autonomous run</b> computes the whole run to review (read-only); `
+      +`<b>Start live intervention</b> (below) drives a live frontier you can intervene at; `
       +`<b>Verify parity</b> checks Pyodide matches CPython.`;};
   document.getElementById('c_profile').onchange=refresh;
   document.getElementById('c_plan').onchange=refresh;
@@ -271,9 +285,9 @@ function liveRefresh(){
   if(sc)sc.value=frame;
   renderCycle(); buildRibbons(); render(); buildLiveConsole();
 }
-// "Run full simulation": one autonomous live session advanced to the end, then
+// "Review autonomous run": one autonomous live session advanced to the end, then
 // reviewed read-only (history scrubber). Intervention happens via Start live
-// session, which leaves a mid-run frontier to act on.
+// intervention, which leaves a mid-run frontier to act on.
 async function doRun(){
   window.afterRender=updateLiveControls;
   await liveStart('', 'auto', 1000000000);   // advance_all (clamped to run length)
@@ -333,10 +347,10 @@ def live_release():
     SESS["s"].release(); _emit()
 def live_set_mode(mode):
     SESS["s"].set_mode(mode or "auto"); _emit()
-def live_intervene(verb, target):
+def live_intervene(verb, target, adv=8):
     # Validates against the live frontier at EXECUTION time; applies at the
-    # frontier tick; advances so the world responds. Returns "" or an error.
-    err = SESS["s"].intervene(verb, target or None)
+    # frontier tick; advances adv ticks so the world responds. Returns "" or err.
+    err = SESS["s"].intervene(verb, target or None, advance=int(adv))
     _emit(); return err or ""
 def live_present_with():
     return list(SESS["s"].present_with())
@@ -386,6 +400,7 @@ def build_index() -> Path:
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<link rel='icon' href='data:,'>"  # suppress the browser favicon request (no 404)
         "<title>Living Inn Observatory — live</title>"
         "<style>" + OB.STYLE + "</style><style>" + OB._asset_css(assets) + "</style></head>"
         "<body>" + OB.BODY +

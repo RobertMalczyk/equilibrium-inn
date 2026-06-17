@@ -144,7 +144,8 @@ def cockpit_html():
 # 8 — controls are disabled away from the frontier (history is read-only).
 def test_cockpit_disables_controls_in_history(cockpit_html):
     assert "updateLiveControls" in cockpit_html
-    assert "Reviewing history" in cockpit_html
+    assert "REVIEWING HISTORY — interventions disabled" in cockpit_html
+    assert "LIVE FRONTIER — interventions enabled" in cockpit_html
     assert "atFrontier=frame>=(window.FRONTIER||0)" in cockpit_html
     assert ".disabled=!atFrontier" in cockpit_html
 
@@ -153,7 +154,8 @@ def test_cockpit_disables_controls_in_history(cockpit_html):
 def test_cockpit_has_no_future_scheduler(cockpit_html):
     assert "Re-run with queued" not in cockpit_html
     assert 'id="iv_tick"' not in cockpit_html        # the old future time-picker
-    assert "Apply now and continue" in cockpit_html  # live-frontier action only
+    assert "Apply intervention" in cockpit_html      # live-frontier action only
+    assert "Start live intervention" in cockpit_html # the interactive-mode entry
 
 
 # 10 — the palette never presents rest/seek_activity as real commands, and the
@@ -163,9 +165,11 @@ def test_cockpit_palette_is_honest(cockpit_html):
     assert "stay silent" in cockpit_html             # observe/noop labelled
 
 
-# 11 — the LLM box is disabled in the browser; the finite palette stays usable.
+# 11 — the LLM box is disabled in the browser, intentionally; the finite palette
+#      stays usable and the message points to the CLI for natural language.
 def test_cockpit_llm_disabled_in_browser(cockpit_html):
-    assert "Natural language intervention is optional and currently" in cockpit_html
+    assert "Browser cockpit uses safe action buttons" in cockpit_html
+    assert "available in the CLI" in cockpit_html
     assert "no provider/key is available there" in cockpit_html
 
 

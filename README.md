@@ -21,9 +21,11 @@ traceable texture. A constant brawl is a failure; a dead inn is a failure.
 > (interactive CLI stepper), **M-D** (Observation Mode + the Living Inn
 > Observatory), **M-E** (baseline cast + regression harness), **M-F** (parity
 > button + GitHub Pages), **M-G** (Controlled Subject / Intervention Mode),
-> **M-H** (optional LLM semantic input seam), and **M-I** (intervention UI
-> integration into the Observatory) are complete; **G0/G1/G2** have all passed.
-> Quantitative choices remain provisional. See the per-milestone logs in
+> **M-H** (optional LLM semantic input seam), and **M-I** (intervention UI in the
+> Observatory — a **live-frontier** cockpit: the observer acts only at the latest
+> computed tick and the simulation unfolds forward from there) are complete;
+> **G0/G1/G2** have all passed (G2 verified in-browser 2026-06-15). Quantitative
+> choices remain provisional. See the per-milestone logs in
 > [`registers/`](registers/).
 
 ## What works today
