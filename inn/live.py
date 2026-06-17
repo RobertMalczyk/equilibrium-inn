@@ -54,7 +54,8 @@ class LiveSession:
     """
 
     def __init__(self, cfg: InnConfig, profile: str | None, plan: str, seed: int,
-                 total: int, subject: str | None = None, mode: str = "auto"):
+                 total: int, subject: str | None = None, mode: str = "auto",
+                 burst_overlay: bool | None = None):
         self.cfg = cfg
         self.total = int(total)
         self.mem = _Records()
@@ -64,8 +65,16 @@ class LiveSession:
         # mutation of this shared, mutable register (CLAUDE.md M-G).
         self.control = ControlState(subject, mode)
         self.loop = InnLoop(cfg, seed=int(seed), probe_plan=plan, trace=self.mem,
-                            profile=profile, control=self.control)
+                            profile=profile, control=self.control,
+                            burst_overlay=burst_overlay)
         self.frontier = 0
+        # Replayable session inputs (CLAUDE.md M-J scenario dump): the construction
+        # params + an ordered log of applied manual overrides. Inputs ONLY — never
+        # simulation results.
+        self.seed = int(seed)
+        self.plan = plan
+        self.profile = profile
+        self.injected: list[dict] = []
 
     # -- state ---------------------------------------------------------------
 
@@ -106,6 +115,17 @@ class LiveSession:
         later ticks — already-computed history is immutable."""
         self.control.subject = subject
         self.control.mode = mode
+
+    def dump_scenario(self, inn_yaml_path="inn.yaml") -> dict:
+        """A lossless, input-only scenario dump of THIS session (CLAUDE.md M-J):
+        the construction params + the ordered manual-override log, enough to
+        reproduce the run bit-for-bit. No simulation results are included."""
+        from inn.scenario import dump_scenario
+        ctrl = ControlState(self.subject, self.mode) if self.subject else None
+        return dump_scenario(
+            self.cfg, seed=self.seed, probe_plan=self.plan, n_ticks=self.total,
+            profile=self.profile, burst_overlay=self.loop.burst_overlay,
+            control=ctrl, injected_events=self.injected, inn_yaml_path=inn_yaml_path)
 
     def release(self) -> None:
         self.control.subject = None
@@ -164,6 +184,10 @@ class LiveSession:
         if self.control.mode != "manual":
             self.control.mode = "manual"
         action: InterventionAction = make_intervention(verb, target, llm=llm)
+        # Record the replayable input BEFORE advancing (the frontier tick is the
+        # one the override runs at). Subject is the controlled subject at apply time.
+        self.injected.append({"t": self.frontier, "subject": self.control.subject,
+                              "verb": verb, "target": target, "llm": llm})
         # Queue at the frontier tick (NOT an arbitrary future tick) and run it.
         self.loop.queue_intervention(self.frontier, action)
         self.advance(1)

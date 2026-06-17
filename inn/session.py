@@ -43,7 +43,8 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                 n_ticks: int | None = None,
                 profile: str | None = None,
                 control: ControlState | None = None,
-                interventions: list[dict] | None = None) -> dict:
+                interventions: list[dict] | None = None,
+                burst_overlay: bool | None = None) -> dict:
     """Run one session; write session.json + trace.jsonl.gz; return the header
     (including the resulting trace sha256).
 
@@ -62,7 +63,8 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
                    transducer_scale=transducer_scale,
                    richness_mults=richness_mults,
                    persona_loader=persona_loader,
-                   profile=profile, control=control)
+                   profile=profile, control=control,
+                   burst_overlay=burst_overlay)
     for iv in (interventions or []):
         loop.queue_intervention(
             iv["t"], make_intervention(iv["verb"], iv.get("target"),
@@ -80,6 +82,7 @@ def run_session(cfg: InnConfig, probe_plan: str, out_dir: str | Path,
         "transducer_scale": transducer_scale,
         "richness_mults": richness_mults,
         "profile": profile,
+        "burst_overlay": loop.burst_overlay,   # resolved (incl. the inn.yaml default)
         "layout": {k: layout[k] for k in ("dt", "day_ticks", "waking_ticks")},
         "controlled_subject": control.subject if control is not None else None,
         "controlled_mode": control.mode if control is not None else None,
@@ -111,4 +114,5 @@ def replay(session_path: str | Path, inn_yaml: str | Path,
                        richness_mults=header["richness_mults"],
                        n_ticks=header["n_ticks"],
                        profile=header.get("profile"),
-                       control=control, interventions=interventions)
+                       control=control, interventions=interventions,
+                       burst_overlay=header.get("burst_overlay"))

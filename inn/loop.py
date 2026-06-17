@@ -93,7 +93,8 @@ class InnLoop:
                  persona_loader: Callable[[str], object] | None = None,
                  extra_events: list[tuple[int, str, RawEvent]] | None = None,
                  profile: str | None = None,
-                 control: ControlState | None = None):
+                 control: ControlState | None = None,
+                 burst_overlay: bool | None = None):
         self.cfg = cfg
         # DEC-6: the inn SHIPS as its default profile (game_semantic_profile).
         # profile=None resolves to cfg.default_profile; pass an explicit name
@@ -109,8 +110,14 @@ class InnLoop:
         self.trace = trace
         self.scale = transducer_scale
         self.rng = random.Random(seed)  # reserved for inherited stochastic choices
+        # burst_overlay=None -> the inn.yaml default (cfg.burst_overlay, ships
+        # false); pass an explicit bool to flip the engine's calibrated burst
+        # overlay ON/OFF for an experiment (M-B: OFF by default — it can amplify
+        # to runaway in the coupled room). Recorded in the session header so the
+        # choice is reproducible.
+        self.burst_overlay = cfg.burst_overlay if burst_overlay is None else bool(burst_overlay)
         loader = persona_loader or make_persona_loader(
-            cfg.resolved_engine_overrides(profile), burst=cfg.burst_overlay)
+            cfg.resolved_engine_overrides(profile), burst=self.burst_overlay)
         self.runtimes: dict[str, PersonaRuntime] = {
             c.id: init_runtime(loader(c.id)) for c in cfg.cast
         }

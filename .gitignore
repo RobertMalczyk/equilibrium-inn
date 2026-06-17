@@ -14,6 +14,11 @@ observatory/g2_reference.json
 observatory/_stage/
 observatory/_g2_ref/
 observatory/_run_impulse/
+observatory/_run_step/
+observatory/_run_control/
+observatory/_tp_impulse/
+observatory/_tp_step/
+observatory/_tp_control/
 observatory/_obs_demo/
 observatory/run_fresh.html
 observatory/pyodide/

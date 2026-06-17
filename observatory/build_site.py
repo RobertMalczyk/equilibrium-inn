@@ -9,7 +9,7 @@ published site equals what you preview locally:
 Produces _site/:
   index.html        the landing page (observatory/landing.html)
   observatory.html  a self-contained static export of a canonical run
-  cockpit.html      the Pyodide live cockpit (with the Verify-parity button)
+  cockpit.html      the Pyodide live cockpit (Observatory + live Time Plots tabs)
   inn_bundle.zip    the cockpit's in-browser inn + pinned-engine bundle
   g2_reference.json the CPython parity reference (fetched by Verify parity)
   assets/           the visual pack (for the landing emblem)

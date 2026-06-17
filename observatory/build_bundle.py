@@ -99,6 +99,7 @@ function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textCo
 function profileVal(){return (document.getElementById('c_profile')||{}).value||'game_semantic_profile';}
 function planVal(){return (document.getElementById('c_plan')||{}).value||'control';}
 function seedVal(){return parseInt((document.getElementById('c_seed')||{}).value||'7',10);}
+function burstVal(){return !!(document.getElementById('c_burst')||{}).checked;}
 
 // ---- M-I LIVE-FRONTIER cockpit ------------------------------------------------
 // The observer influences the world ONLY at the live frontier (the latest computed
@@ -129,6 +130,7 @@ function buildLiveConsole(){
     <button id="iv_suggest" title="What the engine would do for this subject (read-only).">Engine would…</button>
     <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live intervention</button>
     <button id="iv_return" style="display:none" title="Jump the playhead back to the live frontier to intervene.">⟲ Return to live frontier</button>
+    <button id="iv_dump" title="Download a lossless scenario file (profile/protocol/seed/advanced-outburst + every manual override) — inputs only, no results. Replay it later to reproduce this exact run and debug it: python -m inn.scenario replay scenario.json -o out">⤓ Dump scenario</button>
     <div style="flex-basis:100%" id="iv_live" class="sub"></div>
     <div style="flex-basis:100%" id="iv_hint" class="sub"></div>`;
   const $i=id=>document.getElementById(id);
@@ -159,6 +161,7 @@ function buildLiveConsole(){
   $i('iv_adv').onclick=()=>liveAdvance(ADV_STEP);
   $i('iv_return').onclick=()=>{frame=window.FRONTIER||0;
     const sc=$('scrub'); if(sc)sc.value=frame; render();};
+  $i('iv_dump').onclick=()=>dumpScenario();
   refreshTargets(); if(window.afterRender)window.afterRender();
 }
 // Enable/disable the controls by frontier vs history — called after every render
@@ -210,7 +213,7 @@ async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
   setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
   try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
-        subject||'',mode||'auto',initial);
+        subject||'',mode||'auto',initial,burstVal());
     setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
   }catch(e){console.error(e); setStatus('live start failed: '+e);}
 }
@@ -229,12 +232,29 @@ async function doIntervene(verb,target,adv){
     else setStatus('live · intervention applied');
   }catch(e){console.error(e); setStatus('intervention failed: '+e);}
 }
+async function dumpScenario(){
+  if(!PY||!SESS_READY()){setStatus('still booting…');return;}
+  setStatus('dumping scenario…');
+  try{
+    const json=await PY.globals.get('scenario_json')();
+    const info=liveInfo();
+    const fn=`scenario_${profileVal()}_${planVal()}_seed${seedVal()}`
+      +(info.subject?('_'+info.subject):'')+'.json';
+    const blob=new Blob([json],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=fn; document.body.appendChild(a);
+    a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    setStatus('scenario downloaded — replay: python -m inn.scenario replay '+fn+' -o out');
+  }catch(e){console.error(e); setStatus('dump failed: '+e);}
+}
+function SESS_READY(){try{return !!liveInfo().total;}catch(e){return false;}}
 function opts(arr,desc){return arr.map(p=>`<option title="${desc[p]||''}">${p}</option>`).join('');}
 function buildControls(){
   const c=document.getElementById('controls'); c.style.display='flex';
   c.innerHTML=`<label title="The inn's character — which behavioural profile the cast runs under.">profile <select id="c_profile">${opts(PROFILES,PROFILE_DESC)}</select></label>
     <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
     <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
+    <label title="Advanced/experimental: flip the engine's calibrated burst overlay (latch/escalation/extinction) ON. Ships OFF — in the coupled 7-NPC room it can amplify to runaway (see M-B). For experiments only; recorded in the scenario so it stays reproducible.">advanced outburst <input id="c_burst" type="checkbox"></label>
     <button id="c_run" disabled title="Compute the full 3-day, 7-NPC autonomous run in-browser and review it (read-only history). To intervene, use Start live intervention below.">Review autonomous run</button>
     <span class="grow"></span>
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
@@ -283,8 +303,31 @@ function liveRefresh(){
   window.FRONTIER=MODEL.ticks.length-1;
   frame=MODEL.ticks.length-1;            // follow the live frontier
   if(sc)sc.value=frame;
-  renderCycle(); buildRibbons(); render(); buildLiveConsole();
+  renderCycle(); buildRibbons(); render(); buildLiveConsole(); renderPlotsLive();
 }
+// M-J: render the Time Plots panel from the live trace (same shared render layer
+// as the static plots.html). keepView after the first render so advancing the
+// frontier doesn't reset the observer's zoom window.
+function renderPlotsLive(){
+  if(!window.TPMODEL||!window.TimePlots)return;
+  // The Time Plots tab is a sibling view; its canvases size to 0 while hidden,
+  // so only draw when the tab is visible (tab switch re-calls this).
+  const v=document.getElementById('view_plots');
+  if(!v||v.style.display==='none')return;
+  try{window.TimePlots.render(window.TPMODEL,{keepView:!!window._tpInit});
+    window._tpInit=true;}catch(e){console.error('time plots:',e);}
+}
+// Subpage switch between the Observatory and the live Time Plots (same session).
+function tpShowView(which){
+  const obs=document.getElementById('view_obs'), pl=document.getElementById('view_plots');
+  if(!obs||!pl)return; const onPlots=which==='plots';
+  obs.style.display=onPlots?'none':''; pl.style.display=onPlots?'':'none';
+  const tb=document.getElementById('tab_obs'), tp=document.getElementById('tab_plots');
+  if(tb)tb.classList.toggle('on',!onPlots); if(tp)tp.classList.toggle('on',onPlots);
+  if(onPlots)renderPlotsLive();
+}
+function wireTabs(){const tb=document.getElementById('tab_obs'),tp=document.getElementById('tab_plots');
+  if(tb)tb.onclick=()=>tpShowView('obs'); if(tp)tp.onclick=()=>tpShowView('plots');}
 // "Review autonomous run": one autonomous live session advanced to the end, then
 // reviewed read-only (history scrubber). Intervention happens via Start live
 // intervention, which leaves a mid-run frontier to act on.
@@ -293,7 +336,7 @@ async function doRun(){
   await liveStart('', 'auto', 1000000000);   // advance_all (clamped to run length)
 }
 async function boot(){
-  buildControls();
+  buildControls(); wireTabs();
   try{
     PY=await loadPyodide({indexURL:"__PYODIDE__"});
     setStatus('installing packages…');
@@ -312,6 +355,7 @@ from inn.config import load_inn_config
 from inn.engine_surface import believable_day_layout
 from inn.live import LiveSession
 import inn.observe as O
+import inn.timeplots as TP
 import js
 CFG = load_inn_config("inn.yaml")
 DAY = believable_day_layout()["day_ticks"]
@@ -330,15 +374,25 @@ def _emit(first=False):
     js.window.LIVE_ACTIVE = True
     js.window.CONTROLLED = s.subject
     js.window.CONTROL_MODE = s.mode
+    # M-J: the SAME render layer as the static plots.html, fed the live trace.
+    # Observability only — reads s.records, never re-runs/changes the sim.
+    pm = TP.build_plot_model(s.records, CFG, meta={"subtitle":"live · cockpit"})
+    pm["__root"] = "#tpc"
+    js.window.TPMODEL = js.JSON.parse(json.dumps(pm))
     if first: js.init()       # one-time wiring (scrub/play/dev handlers)
     js.liveRefresh()          # follow the frontier + (re)build the live console
-def live_start(profile, plan, seed, subject, mode, initial):
+def live_start(profile, plan, seed, subject, mode, initial, burst=False):
     init = int(initial)
     init = (SEED_TICKS if init <= 0 else init)       # seed ~2 h of day 1, rest is live
     SESS["s"] = LiveSession(CFG, profile, plan, int(seed), TOTAL,
-                            subject=(subject or None), mode=(mode or "auto"))
+                            subject=(subject or None), mode=(mode or "auto"),
+                            burst_overlay=bool(burst))
     SESS["s"].advance(init)
     _emit(first=True)
+def scenario_json():
+    # lossless, input-only dump of the live session (CLAUDE.md M-J). inn.yaml is at
+    # CWD in the bundle, so dump_scenario can embed it.
+    return json.dumps(SESS["s"].dump_scenario("inn.yaml"), indent=2)
 def live_advance(n):
     SESS["s"].advance(int(n)); _emit()
 def live_take_control(subject, mode):
@@ -394,18 +448,45 @@ boot();
 
 def build_index() -> Path:
     import json
+    import inn.timeplots as TP
     boot = CONTROLS_AND_BOOT.replace("__PYODIDE__", _pyodide_base())
     assets = OB.load_assets()  # embed the same asset pack as the static export
     adata = json.dumps(assets, ensure_ascii=False)
+    # M-J: the cockpit is two subpages of the SAME live session — the Observatory
+    # and the live Time Plots — switched by a sticky tab bar (tpShowView in the
+    # boot script). The Time Plots view renders the shared layer from window.TPMODEL
+    # (built each frontier change from the live trace). Observability only.
+    tabnav = (
+        "<div class='tabnav'>"
+        "<button id='tab_obs' class='on'>Observatory</button>"
+        "<button id='tab_plots'>Time plots</button>"
+        "<span class='tabnote'>two views of the same live run</span></div>"
+    )
+    plots_view = (
+        "<div class='wrap' id='view_plots' style='display:none'>"
+        "<div class='hero'><div>"
+        "<h1>Time plots — live engine dynamics</h1>"
+        "<div class='tag'>Interior-state trajectories of the run you are watching "
+        "on the Observatory tab.</div>"
+        "<span class='pill'>fast affect spikes &amp; vents · slow relational marks · "
+        "incidents as the spine</span></div></div>"
+        + TP.plot_body("tpc", with_selector=False) + "</div>"
+    )
+    tabcss = (".tabnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;"
+              "gap:8px;padding:8px 22px;background:rgba(243,233,210,.92);"
+              "backdrop-filter:saturate(1.1);border-bottom:1px solid var(--line)}"
+              ".tabnav .tabnote{color:var(--muted);font-size:12px;font-style:italic;margin-left:6px}")
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         "<link rel='icon' href='data:,'>"  # suppress the browser favicon request (no 404)
         "<title>Living Inn Observatory — live</title>"
-        "<style>" + OB.STYLE + "</style><style>" + OB._asset_css(assets) + "</style></head>"
-        "<body>" + OB.BODY +
+        "<style>" + OB.STYLE + TP.PLOT_STYLE + tabcss + "</style>"
+        "<style>" + OB._asset_css(assets) + "</style></head>"
+        "<body>" + tabnav + "<div id='view_obs'>" + OB.BODY + "</div>" + plots_view +
         "<script>window.ASSETS=" + adata + ";</script>"
-        "<script>" + OB.SCRIPT + "</script>" + boot +
+        "<script>" + OB.SCRIPT + "</script>"
+        "<script>" + TP.PLOT_SCRIPT + "</script>" + boot +
         "</body></html>"
     )
     p = HERE / "index.html"
