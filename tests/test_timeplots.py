@@ -156,6 +156,14 @@ def test_dt_readout_and_time_axis(tmp_path):
     assert "data-tp-dt" in TP.plot_body()
 
 
+# 7e — the Fit-Y autoscale control is present and wired (rescales faint low-amplitude
+#      curves to fill the facet).
+def test_render_has_fit_y():
+    assert 'data-tp="fit"' in TP.plot_body()
+    src = TP.PLOT_SCRIPT
+    assert "function yRange" in src and "autoscale" in src
+
+
 # 8 — the shared render JS is syntactically valid (skipped if node is absent).
 def test_render_js_syntax(tmp_path):
     node = shutil.which("node")

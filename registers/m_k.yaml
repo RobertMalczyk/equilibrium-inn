@@ -104,6 +104,17 @@ bugfix-2026-06-17 (play regression): the M-K speed-aware play loop clamped at th
     caught it (the prior tests only asserted code-presence). Re-verified in-browser:
     parked-at-end play restarts and advances (2150 -> 4 in 2.5 s), 0 console errors.
 
+followup-ui-2 (user ask 2026-06-17): more speed steps + readable fine-dt plots.
+  - observatory/build_bundle.py: speed selector extended to 500/750/1000/2000x (at 15s dt
+    these make play brisk; at 120s 200x+ is usable).
+  - inn/timeplots.py: "⤢ Fit Y" toggle (TP.autoscale) — at fine dt the affect curves sit
+    in a thin band of the 0–1 axis (anger ~0.06–0.29) and were barely visible; Fit Y
+    rescales EACH facet's y-axis to its visible-window data range (yRange(), padded) so
+    curves fill the chart. Added y value labels (ymin/ymax) per facet so the scale is
+    legible. Hover readout still shows absolute values. Render-only.
+  - tests/test_timeplots.py +1 (Fit-Y button + yRange present). Browser-verified: Fit Y
+    makes all facets' curves clearly visible; speeds 1..2000x; 0 console errors.
+
 still-recommended (not blocking the merge):
   - A G0 spot-check on the finer-dt mode before trusting ITS incident corridor for analysis
     (the finer dt is a new operating point; default 120 s corridor is unchanged).

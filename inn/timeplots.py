@@ -276,6 +276,7 @@ def plot_body(root_id: str = "tp", with_selector: bool = True) -> str:
     <button data-tp="zoomout">– Zoom out</button>
     <button data-tp="prev">‹ Prev incident</button>
     <button data-tp="next">Next incident ›</button>
+    <button data-tp="fit" title="Fit Y: rescale each facet's vertical axis to the data visible in the current window, so low-amplitude curves (e.g. anger 0.06–0.29) fill the chart instead of hugging the bottom of the 0–1 axis. Toggle off for absolute 0–1.">⤢ Fit Y</button>
     <label title="What hovering highlights: the incident under the cursor, the per-persona values at that instant, or — as now — both depending on whether you are over an incident marker.">highlight
       <select data-tp-hover>
         <option value="both">both (auto)</option>
@@ -307,7 +308,7 @@ def plot_body(root_id: str = "tp", with_selector: bool = True) -> str:
 
 PLOT_SCRIPT = r"""
 (function(){
-const TP={pm:null,lo:0,hi:0,muted:{},open:{},rootSel:null,hoverMode:'both'};
+const TP={pm:null,lo:0,hi:0,muted:{},open:{},rootSel:null,hoverMode:'both',autoscale:false};
 function $(root,q){return root.querySelector(q);}
 function hhmm(m){const h=(m/60|0),mm=m%60;return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm;}
 function nm(id){return (TP.pm.display_names&&TP.pm.display_names[id])||id;}
@@ -352,6 +353,17 @@ function facetArrays(f){const pm=TP.pm;
   if(f.kind==='rel')return [{id:'__rel',color:relColor(f.channel),arr:f.series,stride:pm.relations.stride}];
   return pm.cast.filter(p=>!TP.muted[p]).map(p=>({id:p,color:pm.colors[p],arr:pm.series[p][f.key]}));}
 function relColor(ch){return ch==='resentment'?'#b5532e':ch==='trust'?'#3d7a8a':ch==='respect'?'#7c9e5e':'#8a6a2e';}
+// y-axis range for a facet: absolute 0..1, or (Fit Y) the visible data range padded.
+function yRange(f,lo,hi){ if(!TP.autoscale) return [0,1];
+  let mn=Infinity,mx=-Infinity;
+  facetArrays(f).forEach(s=>{if(!s.arr)return;
+    if(s.stride){const a=Math.max(0,Math.floor(lo/s.stride)),b=Math.min(s.arr.length-1,Math.ceil(hi/s.stride));
+      for(let j=a;j<=b;j++){const v=s.arr[j]; if(v<mn)mn=v; if(v>mx)mx=v;}}
+    else for(let i=lo;i<=hi;i++){const v=s.arr[i]; if(v<mn)mn=v; if(v>mx)mx=v;}});
+  if(mn===Infinity)return [0,1];
+  if(mx-mn<1e-6){return [Math.max(0,mn-0.05),Math.min(1,mn+0.05)];}   // flat -> small band
+  const pad=(mx-mn)*0.1; return [Math.max(0,mn-pad), Math.min(1,mx+pad)];
+}
 
 const AXIS_H=13;   // bottom strip reserved for the x-axis (in-world time) labels
 function drawFacet(cv,f){const {ctx,w,h}=fit(cv); const pm=TP.pm, lo=TP.lo, hi=TP.hi;
@@ -359,9 +371,16 @@ function drawFacet(cv,f){const {ctx,w,h}=fit(cv); const pm=TP.pm, lo=TP.lo, hi=T
   const x0=2,y0=2,W=w-4,H=(h-4)-AXIS_H;   // H = plot area; the rest is the time axis
   bands(ctx,pm.night,lo,hi,x0,y0,W,H,'rgba(40,30,80,.07)');
   bands(ctx,pm.rain,lo,hi,x0,y0,W,H,'rgba(70,90,150,.10)');
-  // y gridlines at 0 / .5 / 1 (or the relation range)
-  const ymin=0,ymax=1; ctx.strokeStyle='rgba(120,110,90,.18)'; ctx.lineWidth=1;
-  [0,.5,1].forEach(g=>{const y=y0+H-g*H; ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x0+W,y);ctx.stroke();});
+  // y range: absolute 0..1, or — with Fit Y — the visible data range so low-amplitude
+  // curves fill the chart instead of hugging the bottom.
+  const yr=yRange(f,lo,hi), ymin=yr[0], ymax=yr[1];
+  ctx.strokeStyle='rgba(120,110,90,.18)'; ctx.lineWidth=1;
+  ctx.fillStyle='#9b9079'; ctx.font='8px Georgia'; ctx.textBaseline='alphabetic';
+  [ymin,(ymin+ymax)/2,ymax].forEach(v=>{const y=y0+H-(v-ymin)/(ymax-ymin)*H;
+    ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x0+W,y);ctx.stroke();});
+  // y value labels (top = ymax, bottom = ymin) so the scale is legible when fitted
+  ctx.fillText(ymax.toFixed(2), x0+2, y0+8);
+  ctx.fillText(ymin.toFixed(2), x0+2, y0+H-2);
   // day boundaries within the window
   ctx.strokeStyle='rgba(120,110,90,.4)';
   pm.days.forEach(d=>{const i=pm.day_starts[d]; if(i>=lo&&i<=hi){
@@ -603,7 +622,8 @@ function wireToolbar(){const root=document.querySelector(TP.rootSel);
       if(k==='full')setWindow(0,n-1);
       else if(k==='zoomout'){const c=(TP.lo+TP.hi)/2,w=(TP.hi-TP.lo)*2;setWindow(c-w/2,c+w/2);}
       else if(k==='prev')focusIncident((TP._inc==null?0:TP._inc-1));
-      else if(k==='next')focusIncident((TP._inc==null?0:TP._inc+1));};});
+      else if(k==='next')focusIncident((TP._inc==null?0:TP._inc+1));
+      else if(k==='fit'){TP.autoscale=!TP.autoscale; b.classList.toggle('on',TP.autoscale); redrawFacets();}};});
 }
 
 // public entry: render a plot model. opts.keepView preserves the window (live use).
