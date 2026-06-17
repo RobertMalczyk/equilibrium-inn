@@ -23,13 +23,17 @@ import sys
 import zipfile
 from pathlib import Path
 
-import inn.observatory as OB
-from inn.engine_surface import ENGINE_ROOT, verify_pin
-
+# Make the script runnable from the repo root with no PYTHONPATH / editable install:
+# put the repo root on sys.path BEFORE importing inn.* (and so `experiments` /
+# `observatory` resolve too). Must precede the inn imports below.
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import inn.observatory as OB  # noqa: E402  (import after sys.path setup, by design)
+from inn.engine_surface import ENGINE_ROOT, verify_pin  # noqa: E402
+
 HERE = ROOT / "observatory"
-if str(ROOT) not in sys.path:           # allow `python observatory/build_bundle.py`
-    sys.path.insert(0, str(ROOT))       # so `experiments` / `observatory` resolve
 STAGE = HERE / "_stage"
 ENGINE_SUBDIRS = ("engine", "eval", "data", "calibration")
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
@@ -89,51 +93,141 @@ const PLAN_DESC={
   impulse:"one public insult into a calm evening (day 1, 20:00)",
   step:"a rainy day 2 (outdoor work closes; stress rises)",
   control:"nothing scripted — the calm baseline"};
-let PY=null, runLive=null, runControlled=null, PALETTE=[], INTERVENTIONS=[];
+const ADV_STEP=30;   // "Advance ▶" step (~1 in-world hour)
+let PY=null, LIVE=null, PALETTE=[];
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
-function buildIntvConsole(){
+function profileVal(){return (document.getElementById('c_profile')||{}).value||'game_semantic_profile';}
+function planVal(){return (document.getElementById('c_plan')||{}).value||'control';}
+function seedVal(){return parseInt((document.getElementById('c_seed')||{}).value||'7',10);}
+
+// ---- M-I LIVE-FRONTIER cockpit ------------------------------------------------
+// The observer influences the world ONLY at the live frontier (the latest computed
+// tick); the future then emerges from that new state. No future-queue: an action
+// is validated against the live state at execution time and applied at the
+// frontier tick, then the sim advances. All the driving logic is the Python
+// inn.live.LiveSession (the SAME class the tests pin); JS only orchestrates calls.
+function liveInfo(){try{return JSON.parse(LIVE.frontier_info());}catch(e){return {};}}
+function livePresent(){try{return LIVE.present_with().toJs();}catch(e){return [];}}
+function liveEngineWould(){try{return LIVE.engine_would();}catch(e){return 'neutral';}}
+function ivActionLabel(v){return (v==='observe'||v==='noop')
+  ?fmt(v)+' (stay silent)':fmt(v);}
+
+function buildLiveConsole(){
   const box=document.getElementById('intvconsole'); if(!box||!window.MODEL)return;
   const cast=window.MODEL.cast||[], nm=id=>(window.MODEL.display_names||{})[id]||id;
-  const castOpts=cast.map(p=>`<option value="${p}">${nm(p)}</option>`).join('');
-  const palOpts=PALETTE.map(v=>`<option value="${v}">${v}</option>`).join('');
-  box.innerHTML=`<label title="The cast member you take over. The engine still computes their interior.">subject <select id="iv_subj">${castOpts}</select></label>
-    <label title="When (tick) the override fires.">tick <input id="iv_tick" type="number" value="200" style="width:72px"></label>
-    <label title="The outward action — finite, engine-compatible palette.">action <select id="iv_action">${palOpts}</select></label>
-    <label title="Who the action is aimed at (must be present with the subject).">target <select id="iv_target"><option value="">(none)</option>${castOpts}</select></label>
-    <button id="iv_add" title="Queue this override.">Add override</button>
-    <button id="iv_run" title="Re-run live with the queued overrides (manual control).">Run with control</button>
-    <button id="iv_clear" title="Discard queued overrides.">Clear</button>
-    <div style="flex-basis:100%" id="iv_list"></div>`;
-  const refresh=()=>{document.getElementById('iv_list').innerHTML=
-    INTERVENTIONS.length?INTERVENTIONS.map((x,i)=>
-      `<span class="intvchip">t${x.t} ${nm(x.subject)} ${x.verb}${x.target?(' → '+nm(x.target)):''}`
-      +` <a href="#" data-i="${i}" class="iv_del">×</a></span>`).join('')
-      :'<span class="sub">no overrides queued — Add some, then Run with control.</span>';
-    document.querySelectorAll('.iv_del').forEach(a=>a.onclick=ev=>{ev.preventDefault();
-      INTERVENTIONS.splice(+a.dataset.i,1);refresh();});};
-  document.getElementById('iv_add').onclick=()=>{
-    const subj=document.getElementById('iv_subj').value,
-      verb=document.getElementById('iv_action').value,
-      target=document.getElementById('iv_target').value||null,
-      t=parseInt(document.getElementById('iv_tick').value||'0',10);
-    INTERVENTIONS.push({t,subject:subj,verb,target}); refresh();};
-  document.getElementById('iv_clear').onclick=()=>{INTERVENTIONS=[];refresh();};
-  document.getElementById('iv_run').onclick=()=>doRunControlled();
-  refresh();
+  const info=liveInfo();
+  const castOpts=['<option value="">— none (observe) —</option>'].concat(
+    cast.map(p=>`<option value="${p}"${p===info.subject?' selected':''}>${nm(p)}</option>`)).join('');
+  const palOpts=PALETTE.map(v=>`<option value="${v}">${ivActionLabel(v)}</option>`).join('');
+  box.innerHTML=`<label title="Take control of one cast member at the live frontier. The engine still computes their full interior.">Controlled subject <select id="iv_subj">${castOpts}</select></label>
+    <label title="AUTO: the engine drives. MANUAL: your action replaces the outward action at the frontier (silent on ticks you don't act).">Mode <select id="iv_mode"><option value="auto"${info.mode!=='manual'?' selected':''}>AUTO — observe</option><option value="manual"${info.mode==='manual'?' selected':''}>MANUAL — you act</option></select></label>
+    <label title="The outward action — finite, engine-compatible palette.">Manual intervention <select id="iv_action">${palOpts}</select></label>
+    <label title="Valid targets only — cast co-located with the subject at the live frontier.">Target <select id="iv_target"></select></label>
+    <button id="iv_apply" title="Route this action through the normal world path at the live frontier, then advance.">Apply intervention</button>
+    <label title="How many ticks the live simulation advances right after your action, so the world can respond (8 ticks ≈ 16 min).">then advance <input id="iv_advn" type="number" min="1" max="120" value="8" style="width:52px"> ticks</label>
+    <button id="iv_adv" title="Advance the live simulation ~1 in-world hour without acting.">Advance 1 h ▶</button>
+    <button id="iv_suggest" title="What the engine would do for this subject (read-only).">Engine would…</button>
+    <button id="iv_start" title="Start (or restart) a live-frontier session controlling this subject from a mid-run frontier.">Start live intervention</button>
+    <button id="iv_return" style="display:none" title="Jump the playhead back to the live frontier to intervene.">⟲ Return to live frontier</button>
+    <div style="flex-basis:100%" id="iv_live" class="sub"></div>
+    <div style="flex-basis:100%" id="iv_hint" class="sub"></div>`;
+  const $i=id=>document.getElementById(id);
+  const subjRoom=()=>{const t=window.MODEL.ticks[window.FRONTIER||0]||window.MODEL.ticks[window.MODEL.ticks.length-1]||{};
+    return fmt(((t.personas||{})[info.subject]||{}).room||'their room');};
+  const refreshTargets=()=>{
+    const present=livePresent();
+    const pe=((window.MODEL.intervention_ui||{}).palette||[]).find(e=>e.verb===$i('iv_action').value)||{needs_target:true};
+    $i('iv_target').innerHTML=(pe.needs_target?'':'<option value="">(no target)</option>')
+      +present.map(p=>`<option value="${p}">${nm(p)}</option>`).join('');
+    if(pe.needs_target&&!present.length)$i('iv_hint').textContent=
+      info.subject
+        ?`No valid target: ${nm(info.subject)} is alone in the ${subjRoom()}. Advance until someone enters the same room (or pick a no-target action like observe).`
+        :`Pick a controlled subject first, then a co-located target.`;
+    else $i('iv_hint').textContent='';};
+  $i('iv_subj').onchange=()=>{const v=$i('iv_subj').value;
+    if(v)LIVE.take_control(v,$i('iv_mode').value); else LIVE.release();
+    setStatus('live · frontier'+(v?(' · controlling '+nm(v)):''));};
+  $i('iv_mode').onchange=()=>{const v=$i('iv_subj').value;
+    if(v)LIVE.take_control(v,$i('iv_mode').value); else LIVE.set_mode($i('iv_mode').value);};
+  $i('iv_action').onchange=refreshTargets;
+  $i('iv_start').onclick=()=>liveStart($i('iv_subj').value,$i('iv_mode').value,0);
+  $i('iv_suggest').onclick=()=>{$i('iv_hint').innerHTML=
+    `Engine would select for ${nm(info.subject||'the subject')}: <b>${fmt(liveEngineWould()||'neutral')}</b> `
+    +`<span class="sub">— read-only, what the autonomous NPC would do. Not forced.</span>`;};
+  $i('iv_apply').onclick=()=>doIntervene($i('iv_action').value,$i('iv_target').value||null,
+    parseInt(($i('iv_advn')||{}).value||'8',10));
+  $i('iv_adv').onclick=()=>liveAdvance(ADV_STEP);
+  $i('iv_return').onclick=()=>{frame=window.FRONTIER||0;
+    const sc=$('scrub'); if(sc)sc.value=frame; render();};
+  refreshTargets(); if(window.afterRender)window.afterRender();
 }
-async function doRunControlled(){
-  if(!runControlled){setStatus('still booting…');return;}
-  const subj=INTERVENTIONS.length?INTERVENTIONS[0].subject:
-    (document.getElementById('iv_subj')||{}).value;
-  setStatus('simulating with intervention…');
-  await new Promise(r=>setTimeout(r,30));
-  try{
-    await runControlled(document.getElementById('c_profile').value,
-      document.getElementById('c_plan').value,
-      parseInt(document.getElementById('c_seed').value||'7',10),
-      subj, JSON.stringify(INTERVENTIONS));
-    setStatus('live · intervention'); buildIntvConsole();
-  }catch(e){console.error(e); setStatus('controlled run failed: '+e);}
+// Enable/disable the controls by frontier vs history — called after every render
+// (window.afterRender), so scrubbing into the past disables intervention.
+function updateLiveControls(){
+  if(!window.LIVE_ACTIVE||!document.getElementById('iv_subj'))return;
+  const nm=id=>(window.MODEL.display_names||{})[id]||id;
+  const atFrontier=frame>=(window.FRONTIER||0), info=liveInfo();
+  // Always available (they reconfigure / restart the session, not act on the
+  // current frontier): subject, mode, Start live session.
+  // Disabled while reviewing history (they act on the live frontier): action,
+  // target, Engine would…, Apply, Advance.
+  ['iv_action','iv_target','iv_suggest','iv_apply','iv_adv']
+    .forEach(id=>{const e=document.getElementById(id); if(e)e.disabled=!atFrontier;});
+  ['iv_subj','iv_mode','iv_start']
+    .forEach(id=>{const e=document.getElementById(id); if(e)e.disabled=false;});
+  const ret=document.getElementById('iv_return'); if(ret)ret.style.display=atFrontier?'none':'inline-block';
+  const apply=document.getElementById('iv_apply');
+  if(apply&&atFrontier)apply.disabled=!!info.at_end||info.mode!=='manual'||!info.subject;
+  const adv=document.getElementById('iv_adv'); if(adv&&atFrontier)adv.disabled=!!info.at_end;
+  const live=document.getElementById('iv_live'); if(!live)return;
+  const tk=window.MODEL.ticks[frame]||{};
+  // a slim teal progress bar: how much of the 3 days the live frontier has reached.
+  const pct=info.total?Math.round(100*(info.frontier||0)/info.total):0;
+  const bar=`<div class="frontwrap"><div class="frontbar"><span style="width:${pct}%"></span></div>`
+    +`<span class="frontpct">${pct}% of the simulation computed</span></div>`;
+  // An impossible-to-miss state tag: live (interventions enabled) vs history (disabled).
+  if(!atFrontier){
+    live.innerHTML=`<span class="statetag hist">REVIEWING HISTORY — interventions disabled</span>`
+      +`<div class="livehint">Viewing day ${tk.day} ${tk.clock} (before the live frontier). `
+      +`Use <b>⟲ Return to live frontier</b> to intervene again.</div>`+bar;}
+  else if(info.at_end){
+    live.innerHTML=`<span class="statetag end">END OF RUN — all ${info.total} ticks computed</span>`
+      +`<div class="livehint">Scrub to review, or <b>Start live intervention</b> to drive a fresh mid-run frontier.</div>`+bar;}
+  else{
+    live.innerHTML=`<span class="statetag live">LIVE FRONTIER — interventions enabled</span>`
+      +` <span class="sub">day ${tk.day} ${tk.clock}</span>`+bar
+      +`<div class="livehint">The first ~2 hours are seeded so there is a scene to act on. `
+      +`The remaining simulation will unfold from your interventions. `
+      +(info.subject?(info.mode==='manual'
+          ?`<b>Manual mode holds ${nm(info.subject)}'s outward action unless you act. `
+            +`Switch to AUTO to let the engine drive again.</b> `
+            +`Pick an action + target and <b>Apply intervention</b>, or <b>Advance 1 h ▶</b>.`
+          :`AUTO lets the engine drive ${nm(info.subject)}; switch to <b>MANUAL</b> to intervene, or <b>Advance 1 h ▶</b>.`)
+        :`Pick a <b>controlled subject</b> to intervene, or <b>Advance 1 h ▶</b> to watch.`)
+      +`</div>`;}
+}
+async function liveStart(subject,mode,initial){
+  if(!PY){setStatus('still booting…');return;}
+  setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
+  try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
+        subject||'',mode||'auto',initial);
+    setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
+  }catch(e){console.error(e); setStatus('live start failed: '+e);}
+}
+async function liveAdvance(n){
+  if(!LIVE){setStatus('still booting…');return;}
+  setStatus('advancing…'); await new Promise(r=>setTimeout(r,10));
+  try{ await PY.globals.get('live_advance')(n); setStatus('live · frontier'); }
+  catch(e){console.error(e); setStatus('advance failed: '+e);}
+}
+async function doIntervene(verb,target,adv){
+  if(!LIVE)return;
+  setStatus('intervening at the frontier…'); await new Promise(r=>setTimeout(r,10));
+  try{ const err=await PY.globals.get('live_intervene')(verb,target||'',adv||8);
+    if(err){const h=document.getElementById('iv_hint'); if(h)h.textContent=err;
+      setStatus('live · frontier');}
+    else setStatus('live · intervention applied');
+  }catch(e){console.error(e); setStatus('intervention failed: '+e);}
 }
 function opts(arr,desc){return arr.map(p=>`<option title="${desc[p]||''}">${p}</option>`).join('');}
 function buildControls(){
@@ -141,7 +235,7 @@ function buildControls(){
   c.innerHTML=`<label title="The inn's character — which behavioural profile the cast runs under.">profile <select id="c_profile">${opts(PROFILES,PROFILE_DESC)}</select></label>
     <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
     <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
-    <button id="c_run" disabled title="Re-run the full 3-day, 7-NPC simulation in-browser with these settings.">Run simulation</button>
+    <button id="c_run" disabled title="Compute the full 3-day, 7-NPC autonomous run in-browser and review it (read-only history). To intervene, use Start live intervention below.">Review autonomous run</button>
     <span class="grow"></span>
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
     <span id="p_status" class="sub">parity: idle</span>
@@ -155,7 +249,9 @@ function buildControls(){
     document.getElementById('c_help').innerHTML=
       `<b>profile</b> ${pf}: ${PROFILE_DESC[pf]} · <b>protocol</b> ${pl}: ${PLAN_DESC[pl]} `
       +`· <b>seed</b>: deterministic — same settings reproduce the same run. `
-      +`<b>Run simulation</b> recomputes in-browser; <b>Verify parity</b> checks Pyodide matches CPython.`;};
+      +`<b>Review autonomous run</b> computes the whole run to review (read-only); `
+      +`<b>Start live intervention</b> (below) drives a live frontier you can intervene at; `
+      +`<b>Verify parity</b> checks Pyodide matches CPython.`;};
   document.getElementById('c_profile').onchange=refresh;
   document.getElementById('c_plan').onchange=refresh;
   refresh();
@@ -179,16 +275,22 @@ async function verifyParity(){
   }catch(e){console.error(e); pstat('error ⚠️','#b5532e');
     document.getElementById('p_detail').textContent='⚠️ error running parity check: '+e;}
 }
+// Re-render after a live advance/intervention WITHOUT resetting the user's
+// selection: regrow the scrubber, follow the frontier, rebuild ribbons/console.
+// Python calls this (js.liveRefresh) after each frontier change.
+function liveRefresh(){
+  const sc=$('scrub'); if(sc)sc.max=MODEL.ticks.length-1;
+  window.FRONTIER=MODEL.ticks.length-1;
+  frame=MODEL.ticks.length-1;            // follow the live frontier
+  if(sc)sc.value=frame;
+  renderCycle(); buildRibbons(); render(); buildLiveConsole();
+}
+// "Review autonomous run": one autonomous live session advanced to the end, then
+// reviewed read-only (history scrubber). Intervention happens via Start live
+// intervention, which leaves a mid-run frontier to act on.
 async function doRun(){
-  if(!runLive){setStatus('still booting…');return;}
-  setStatus('simulating… (a few seconds)');
-  await new Promise(r=>setTimeout(r,30));   // let the status paint first
-  try{
-    await runLive(document.getElementById('c_profile').value,
-      document.getElementById('c_plan').value,
-      parseInt(document.getElementById('c_seed').value||'7',10));
-    setStatus('live · Pyodide'); buildIntvConsole();
-  }catch(e){console.error(e); setStatus('run failed: '+e);}
+  window.afterRender=updateLiveControls;
+  await liveStart('', 'auto', 1000000000);   // advance_all (clamped to run length)
 }
 async function boot(){
   buildControls();
@@ -207,22 +309,57 @@ zipfile.ZipFile(io.BytesIO(await resp.bytes())).extractall(".")
 root = os.getcwd()
 if root not in sys.path: sys.path.insert(0, root)
 from inn.config import load_inn_config
-from inn.loop import InnLoop
 from inn.engine_surface import believable_day_layout
+from inn.live import LiveSession
 import inn.observe as O
 import js
 CFG = load_inn_config("inn.yaml")
 DAY = believable_day_layout()["day_ticks"]
-class _Mem:
-    def __init__(s): s.records=[]
-    def emit(s,r): s.records.append(r)
-    def close(s): return ""
-def run_live(profile, plan, seed):
-    m=_Mem()
-    InnLoop(CFG, seed=int(seed), probe_plan=plan, trace=m, profile=profile).run(CFG.days*DAY)
-    model=O.build_model(m.records, CFG, meta={"subtitle":"live · Pyodide"}, stride=2)
+TOTAL = CFG.days*DAY
+HOUR = max(1, round(DAY/24))          # ticks per in-world hour
+SEED_TICKS = 2*HOUR                    # seed the first ~2 hours of day 1 so there
+                                       # is a scene to act on; the rest is the user's
+# M-I live-frontier: ONE persistent session. The observer acts only at the live
+# frontier (inn.live.LiveSession — the same class the CPython tests pin); the
+# future emerges from that new state. No future-queue.
+SESS = {"s": None}
+def _emit(first=False):
+    s = SESS["s"]
+    model = O.build_model(s.records, CFG, meta={"subtitle":"live · cockpit"}, stride=1)
     js.window.MODEL = js.JSON.parse(json.dumps(model))
-    js.init()
+    js.window.LIVE_ACTIVE = True
+    js.window.CONTROLLED = s.subject
+    js.window.CONTROL_MODE = s.mode
+    if first: js.init()       # one-time wiring (scrub/play/dev handlers)
+    js.liveRefresh()          # follow the frontier + (re)build the live console
+def live_start(profile, plan, seed, subject, mode, initial):
+    init = int(initial)
+    init = (SEED_TICKS if init <= 0 else init)       # seed ~2 h of day 1, rest is live
+    SESS["s"] = LiveSession(CFG, profile, plan, int(seed), TOTAL,
+                            subject=(subject or None), mode=(mode or "auto"))
+    SESS["s"].advance(init)
+    _emit(first=True)
+def live_advance(n):
+    SESS["s"].advance(int(n)); _emit()
+def live_take_control(subject, mode):
+    SESS["s"].take_control(subject or None, mode or "manual"); _emit()
+def live_release():
+    SESS["s"].release(); _emit()
+def live_set_mode(mode):
+    SESS["s"].set_mode(mode or "auto"); _emit()
+def live_intervene(verb, target, adv=8):
+    # Validates against the live frontier at EXECUTION time; applies at the
+    # frontier tick; advances adv ticks so the world responds. Returns "" or err.
+    err = SESS["s"].intervene(verb, target or None, advance=int(adv))
+    _emit(); return err or ""
+def live_present_with():
+    return list(SESS["s"].present_with())
+def live_engine_would():
+    return SESS["s"].engine_would() or "neutral"
+def live_frontier_info():
+    s = SESS["s"]
+    return json.dumps({"frontier": s.frontier, "total": s.total,
+                       "at_end": s.at_end(), "subject": s.subject, "mode": s.mode})
 def run_parity(seed, n):
     # Fixed G2 session, identical params to experiments.g2_parity; returns the
     # full-trace SHA-256 (TraceWriter.close()) for in-browser parity comparison.
@@ -231,30 +368,18 @@ def run_parity(seed, n):
     h = run_session(CFG, "control", tempfile.mkdtemp(), seed=int(seed),
                     n_ticks=int(n), profile="game_semantic_profile")
     return h["trace_sha256"]
-def run_live_controlled(profile, plan, seed, subject, interventions_json):
-    # M-G: same live run, but with the observer controlling one subject. The
-    # engine still ticks that subject; the queued manual actions override only
-    # the outward action, routed through the normal world/transducer + probe path.
-    from inn.intervention import ControlState, make_intervention
-    ivs = json.loads(interventions_json) if interventions_json else []
-    control = ControlState(subject, "manual") if subject else None
-    m=_Mem()
-    loop=InnLoop(CFG, seed=int(seed), probe_plan=plan, trace=m, profile=profile,
-                 control=control)
-    for iv in ivs:
-        loop.queue_intervention(int(iv["t"]),
-                                make_intervention(iv["verb"], iv.get("target")))
-    loop.run(CFG.days*DAY)
-    model=O.build_model(m.records, CFG, meta={"subtitle":"live · intervention"}, stride=2)
-    js.window.MODEL = js.JSON.parse(json.dumps(model))
-    js.init()
 def palette_verbs():
     from inn.intervention import PALETTE_VERBS
     return list(PALETTE_VERBS)
 `);
-    runLive=(p,pl,sd)=>PY.globals.get("run_live")(p,pl,sd);
-    runControlled=(p,pl,sd,subj,ivs)=>PY.globals.get("run_live_controlled")(p,pl,sd,subj,ivs);
+    LIVE={frontier_info:()=>PY.globals.get("live_frontier_info")(),
+          present_with:()=>PY.globals.get("live_present_with")(),
+          engine_would:()=>PY.globals.get("live_engine_would")(),
+          take_control:(s,m)=>PY.globals.get("live_take_control")(s,m),
+          release:()=>PY.globals.get("live_release")(),
+          set_mode:(m)=>PY.globals.get("live_set_mode")(m)};
     PALETTE=PY.globals.get("palette_verbs")().toJs();
+    window.afterRender=updateLiveControls;
     window.IS_COCKPIT=true;
     const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
     const pbtn=document.getElementById('c_parity'); if(pbtn)pbtn.disabled=false;
@@ -275,6 +400,7 @@ def build_index() -> Path:
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<link rel='icon' href='data:,'>"  # suppress the browser favicon request (no 404)
         "<title>Living Inn Observatory — live</title>"
         "<style>" + OB.STYLE + "</style><style>" + OB._asset_css(assets) + "</style></head>"
         "<body>" + OB.BODY +

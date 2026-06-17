@@ -1,0 +1,159 @@
+milestone: M-I (Intervention UI integration — wire M-G/M-H into the Observatory)
+state: IMPLEMENTED. The already-merged M-G (Controlled Subject / Intervention Mode)
+  and M-H (optional LLM seam) are now surfaced as a coherent, read-only intervention
+  console in the Observatory UI (static export + Pyodide cockpit), driven entirely by
+  the shared model layer. Integration + UX + QA only: ZERO new simulation behaviour,
+  ZERO engine changes, ZERO dynamics tuning. Golden + G2 parity reference + import
+  contract intact. 149 tests green (139 prior + 10 new).
+updated: 2026-06-16
+
+done:
+  - id: model-layer
+    what: >
+      inn/observe.py — build_model now always exposes "intervention_ui"
+      {palette (valid_actions), llm_enabled (= llm_seam.enabled(), False in the
+      browser), controlled_subjects, summary} and keeps the "interventions" list
+      (only when overrides exist). New intervention_ui_model() reuses
+      report_intervention(); no parallel UI state, no engine recompute. The model
+      is the single source the static export and the cockpit both render.
+  - id: shared-ui
+    what: >
+      inn/observatory.py — the intervention panel restructured into the required
+      sections: Controlled subject (NPC, AUTO/MANUAL badge, room/mode/state, and
+      whether the latest outward action was engine / manual / LLM-assisted), Engine
+      suggestion (READ-ONLY — read from personas[subject].action, never recomputed),
+      Latest intervention / causality (you-chose vs engine-would-have, route,
+      reactions caused), Intervention summary, and an LLM panel that shows a
+      graceful disabled state when no provider is configured. Timeline ribbons gain
+      subtle teal markers for overrides + a legend entry. Developer view adds
+      selected_by / route / LLM provenance; Observer view stays label-only. A
+      "static replay mode" vs "live cockpit" tag distinguishes the two deliverables.
+  - id: cockpit-console
+    what: >
+      observatory/build_bundle.py — the live console (cockpit only) now: defaults
+      the tick to the current playhead; offers AUTO/MANUAL; filters the target
+      dropdown to cast PRESENT with the subject at that tick (valid targets only,
+      no telepathy) with a clear hint when the subject is alone; a Suggest button
+      shows the engine's would-be action (read-only); Add validates needs-target;
+      "Re-run with queued intervention(s)" calls run_live_controlled(profile, plan,
+      seed, subject, mode, interventions_json) for a deterministic re-run through the
+      exact M-G path (turn-free, not real-time play — clarified in button + note). The
+      default run_live / Verify-parity path is unchanged -> G2 parity preserved.
+      Both JS blobs pass `node --check`; the embedded boot Python compiles.
+  - id: llm-ui
+    what: >
+      The LLM (M-H) free-text box is browser-DISABLED by design (no provider/key in
+      Pyodide) and never faked; the UI shows "Natural language intervention is
+      optional and currently disabled" and the finite palette stays fully usable.
+      The LLM path is exercised from the CLI (say "<text>" -> confirm), unchanged.
+  - id: qa-tests-docs
+    what: >
+      tests/test_intervention_ui.py (10): model exposes intervention_ui/palette;
+      controlled run carries manual_override provenance + engine suggestion into the
+      model; llm_enabled follows env (False default / True when set); summary counts;
+      static export renders an intervention trace; cockpit index builds; valid-target
+      data derivable from per-tick presence; autonomous model unaffected. README gains
+      an "Intervention console in the Observatory (M-I)" subsection;
+      observatory/BROWSER_QA.md is the 15-step real-browser smoke checklist. Full
+      suite 149 green; build_site + build_bundle succeed; g2_reference.json SHA
+      unchanged (6a7404b6…1927573a).
+  - id: corner-tests
+    what: >
+      tests/test_intervention_corner.py (26) — adversarial boundaries for review
+      before merge: telepathy/self/target-less validation; switching the controlled
+      subject mid-run; two manual acts on one tick (last wins, the discarded probe
+      never fires); overrides on the first and last ticks; every transduce-route
+      verb emitting its mapped event + both probe-route verbs; reaction attribution;
+      AUTO-only run leaves no overrides in the UI model vs manual-noop-only showing
+      the subject with zero overrides; mixed-route replay determinism; and LLM
+      mapping corners (fenced JSON accepted, non-object/missing-action/out-of-range/
+      below-threshold rejected, confirm-with-nothing, say-without-subject). Fakes
+      only — no real API calls. (Welf is never alone in this seed/plan, so the
+      "no valid target" path is covered via cross-room rejection.)
+  - id: premerge-polish
+    what: >
+      First-time-user clarity pass (display/UX only; no dynamics). (1) Manual action
+      prose: chronicle.manual_action_line gives plain declarative lines ("Welf
+      praises Halgrim warmly", not the garbled engine reaction tier); event_line
+      suppresses the controlled subject's own auto-derived beat on an override tick.
+      (2) Observer View relabels engine mode IDLE -> "unoccupied" (observe.observer_mode
+      + ambient "is unoccupied"); raw MODE_LABEL/Developer view unchanged. (3) suggest
+      before the first tick says "no engine suggestion yet — let one tick pass" (no
+      "?"). (4) noop/observe reads as "manual silence (no outward action)" in why/UI
+      (observer_action_label); Developer view keeps raw `noop`. (5) footer clock now
+      uses _now() = clock_str(min(t, n-1)) so it advances with the quiet summary
+      (event-beat stamps still use t-1). (6) `report intervention(s)` CLI view
+      (overrides, by action, targets, manual/LLM split, latest engine-would vs
+      you-chose) + help text. (7) build_bundle.py inserts repo root on sys.path
+      BEFORE importing inn.* (runnable from root, no PYTHONPATH/editable install).
+      (8) cockpit button "Run with control" -> "Re-run with queued intervention(s)"
+      + a note that it is a deterministic re-run, not real-time play. (9) tests:
+      tests/test_intervention_polish.py (13). equilibrium-engine unchanged; g2 ref
+      SHA 6a7404b6… unchanged; build_site + build_bundle pass; JS node --check clean.
+
+decisions:
+  - "UI is READ-ONLY over the model: it renders intervention_ui/interventions and
+     never recomputes engine behaviour or duplicates the palette/validation."
+  - "Cockpit uses the existing batch re-run model (queue overrides -> deterministic
+     re-run), not per-tick stepping — overrides stay replayable. Documented in QA."
+  - "Manual insult is shown as user_selected=insult + route, never as a spontaneous
+     outburst, even though it routes through the engine action `outburst`."
+
+deferred:
+  - "Real-browser automated smoke (Playwright) not added — the cockpit needs the
+     ~tens-of-MB Pyodide runtime; covered by a documented checklist + model/JS-syntax
+     tests instead."
+  - "Browser-side M-H (live LLM calls in Pyodide) intentionally not built — shown as
+     disabled in the browser; the CLI is the LLM path."
+  - "rest/seek_activity still omitted from the palette (no clean engine path; future
+     work needs an engine-side seam) — see [[g1-audit-handoff]] / registers/m_g_h.yaml."
+
+# --- M-I follow-up: live-frontier correction pass (2026-06-16) ----------------
+live_frontier_pass:
+  date: 2026-06-16
+  summary: >
+    Replaced the cockpit's future-queued batch intervention UX with a LIVE-FRONTIER
+    model. The observer influences the world ONLY at the live frontier (the latest
+    computed tick); the future emerges from that new state. No future-queue, no
+    arbitrary-future scheduling, no telepathy.
+  changes:
+    - "NEW inn/live.py (LiveSession): an incremental driver over InnLoop._step.
+       advance/take_control/release/set_mode/present_with(frontier)/engine_would/
+       validate(frontier)/intervene(at frontier, then advance). Owns NO dynamics —
+       only drives the same per-tick call InnLoop.run makes + mutates the shared
+       ControlState. The SAME class the cockpit imports and the tests pin."
+    - "PROVEN: incremental live-frontier driving is BYTE-IDENTICAL to a batch
+       run_session with the same (control, interventions) — test_live_frontier_equals_batch
+       + test_autonomous_live_matches_plain_run. Honesty + determinism intact."
+    - "build_bundle.py: boot now holds ONE persistent LiveSession; exposes
+       live_start/live_advance/live_take_control/live_release/live_set_mode/
+       live_intervene/live_present_with/live_engine_would/live_frontier_info. JS
+       buildLiveConsole + updateLiveControls (disable away from frontier) +
+       liveRefresh (follow frontier). Removed iv_tick future picker, INTERVENTIONS
+       queue, run_live/run_live_controlled, 'Re-run with queued intervention(s)'.
+       New labels: 'Run full simulation', 'Start live session', 'Engine would…',
+       'Apply now and continue', 'Advance ▶', 'Return to live frontier',
+       'Reviewing history'."
+    - "observatory.py: render() calls window.afterRender (live frontier/history
+       hook; noop in static export); ribbon legend always includes the observer
+       'intervention' entry; help <details> + hint rewritten to the live-frontier
+       model with the three honest tracks (cycle ribbon = engine truth; room =
+       world/schedule truth; teal marks = observer influence). renderWhy stays
+       frame-aware; ribbon teal bar+cap kept."
+    - "Target validation happens at EXECUTION time against the frontier presence
+       (LiveSession.validate -> validate_target). Telepathy/self/target-less all
+       rejected — test_target_validated_at_frontier_no_telepathy + _self_and_targetless."
+    - "Static export stays READ-ONLY: renders recorded interventions, no live driver
+       (no live_intervene / loadPyodide) — test_static_export_is_read_only."
+    - "LLM browser-disabled unchanged; no API key in HTML/bundle/model —
+       test_no_api_key_in_cockpit_html (build with a key set; assert absent)."
+    - "NEW tests/test_intervention_frontier.py (14); test_intervention_ui.py test 8
+       updated to the live identifiers. Full suite 202 passed."
+  invariants_held:
+    - "ZERO engine-dynamics changes; equilibrium-engine working tree clean."
+    - "g2_reference SHA 6a7404b6…1927573a UNCHANGED (parity intact); golden intact."
+    - "No game systems added (no quests/score/inventory/levels/combat)."
+  decision: >
+    SUPERSEDES the earlier 'cockpit uses the existing batch re-run model' decision:
+    the cockpit now uses the live-frontier model. The underlying determinism story is
+    unchanged (live == batch byte-for-byte), so replay/goldens are untouched.

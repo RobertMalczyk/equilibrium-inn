@@ -355,6 +355,23 @@ push to main), PR-validated by `.github/workflows/ci.yml`; `observatory/fetch_py
 fetches the runtime on demand into `observatory/pyodide/` (not committed). Pending (not
 code): enable Pages, run the in-browser parity check to CLOSE G2, optionally fetch the
 runtime / set a `CNAME` domain. See `registers/m_e.yaml`]**.
+M-G Controlled Subject / Intervention Mode + M-H Optional LLM Semantic Input Seam
+**[DONE, merged to main: the observer takes manual control of ONE existing cast
+member; the engine still ticks it and computes its full interior, the observer
+overrides only the OUTWARD action through the normal world/transducer+probe path,
+and the trace records engine_would_have_selected vs user_selected_action
+(selected_by engine|manual_override|manual_noop), emitted ONLY when a subject is
+controlled so autonomous runs stay byte-identical. M-H is OFF by default,
+provider-agnostic (openai/anthropic), maps observer free text -> validated
+candidate -> confirm -> the EXACT M-G path; API key never persisted. inn/
+intervention.py + inn/llm_seam.py + CLI control/release/auto/manual/act/suggest/
+say/confirm. See `registers/m_g_h.yaml`]**. M-I Intervention UI integration
+**[DONE: M-G/M-H surfaced as a read-only intervention console in the Observatory
+(static export + Pyodide cockpit), driven by the shared model's `intervention_ui`
++ `interventions` fields — controlled-subject status, engine suggestion (read-only),
+finite palette, latest-intervention causality, summary, timeline markers, LLM panel
+gracefully disabled in the browser. Integration/UX/QA only — ZERO new dynamics.
+See `registers/m_i.yaml` + `observatory/BROWSER_QA.md`]**.
 
 Per-milestone register: keep a `registers/` YAML log (state, decisions, findings,
 open questions) in the project's usual style; update it at every AUDIT.

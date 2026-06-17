@@ -168,7 +168,7 @@ button{font:inherit;background:#efe2c2;border:1px solid var(--line);border-radiu
 button:hover{background:#e7d6ad}
 button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .grid{display:grid;gap:16px}
-.cols{grid-template-columns:1.18fr .82fr}
+.cols{grid-template-columns:1.5fr .9fr}
 .cols3{grid-template-columns:1.3fr .7fr}
 @media(max-width:900px){.cols,.cols3{grid-template-columns:1fr}}
 .card{border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow);
@@ -177,12 +177,13 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .card h3{display:flex;align-items:center;gap:8px;font-size:12.5px;text-transform:uppercase;
   letter-spacing:1.3px;color:var(--muted);margin-bottom:11px}
 .card h3 img{width:18px;height:18px}
-.scene{position:relative;border-radius:12px;overflow:hidden;min-height:230px;padding:10px;
+.scene{position:relative;border-radius:12px;overflow:hidden;min-height:380px;padding:12px;
   background:var(--a-scene,#f5ead0) center/cover;border:1px solid var(--line)}
-.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.room{min-height:84px;background:rgba(251,244,227,.82);border:1px solid var(--line);
-  border-radius:10px;padding:8px}
-.room .rn{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.room{min-height:150px;background:rgba(251,244,227,.34);border:1px solid rgba(216,201,168,.7);
+  border-radius:10px;padding:9px;backdrop-filter:blur(1px)}
+.room .rn{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink);
+  font-weight:600;text-shadow:0 1px 2px rgba(255,250,238,.8)}
 .tok{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
   width:52px;height:52px;margin:5px 5px 0 0;border-radius:50%;cursor:pointer;
   background:var(--tokbg) center/contain no-repeat;background-color:#fff;
@@ -227,10 +228,38 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .ev.intv .sub{font-weight:400}
 .intvlog{margin-top:8px;max-height:240px;overflow:auto}
 .llmtag{color:#6b5836;font-style:italic;font-weight:400}
+.intvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:8px 0}
+.intvbox{background:rgba(42,154,160,.06);border:1px solid rgba(42,154,160,.30);
+  border-radius:8px;padding:8px 10px}
+.intvbox .bh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#1f6f72;font-weight:700;margin-bottom:3px}
+.intvbox .bc{font-size:13px;line-height:1.4}
+.intvhelp{margin:6px 0 4px;font-size:13px}
+.intvhelp summary{cursor:pointer;color:#1f6f72;font-weight:600}
+.intvhelp ol{margin:8px 0 6px 18px;padding:0;line-height:1.5}
+.intvhelp li{margin:3px 0}
+.modetag{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;vertical-align:middle}
+.modetag.live{background:rgba(42,154,160,.16);color:#1f6f72}
+.modetag.static{background:rgba(120,110,90,.16);color:#6b5836}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:0 7px;border-radius:9px}
+.badge.man{background:rgba(42,154,160,.16);color:#1f6f72}
+.badge.auto{background:rgba(120,110,90,.16);color:#6b5836}
 #intvconsole label{display:flex;gap:5px;align-items:center;font-size:13px}
 #intvconsole select,#intvconsole input{font:inherit;padding:2px 4px}
 .intvchip{display:inline-block;background:rgba(42,154,160,.13);border:1px solid #2a9aa0;
   border-radius:5px;padding:1px 7px;margin:2px;font-size:12px}
+.frontwrap{display:flex;align-items:center;gap:9px;margin:5px 0 2px}
+.frontbar{flex:1;height:8px;background:rgba(42,154,160,.14);border:1px solid rgba(42,154,160,.34);
+  border-radius:6px;overflow:hidden;max-width:340px}
+.frontbar>span{display:block;height:100%;background:linear-gradient(90deg,#2a9aa0,#39c2c9);
+  border-radius:6px;transition:width .25s}
+.frontpct{font-size:11px;color:#1f6f72;font-variant-numeric:tabular-nums;white-space:nowrap}
+.livehint{font-size:12px;color:var(--muted);margin-top:2px}
+.livehint b{color:#1f6f72}
+.statetag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;
+  padding:3px 11px;border-radius:7px;text-transform:uppercase}
+.statetag.live{background:#1f6f72;color:#eafdff;box-shadow:0 0 0 3px rgba(42,154,160,.22)}
+.statetag.hist{background:#8a6a2e;color:#fff5e2;box-shadow:0 0 0 3px rgba(169,118,47,.20)}
+.statetag.end{background:#6b5836;color:#f3e9d2}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
 .metric{background:#f7eed7;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .metric .v{font-size:20px}
@@ -247,10 +276,16 @@ button.on{background:#c9883a;color:#fff;border-color:#a9762f}
 .footer img{width:28px;height:28px;vertical-align:middle;opacity:.8}
 .isnight .scene{filter:saturate(.8) brightness(.94)}
 canvas{display:block}
+.tip{position:fixed;z-index:60;max-width:262px;background:#2a2018;color:#f3e9d2;
+  font-size:12px;line-height:1.45;padding:8px 10px;border-radius:8px;pointer-events:none;
+  box-shadow:0 5px 16px rgba(0,0,0,.32);display:none}
+.tip b{color:#7fd6da}
+.tip i{color:#cdbfa3}
 """
 
 BODY = """
 <div class="fireflies"></div>
+<div class="tip" id="tip"></div>
 <div class="wrap">
   <div class="hero">
     <img class="emblem" id="emblem" alt="">
@@ -298,11 +333,60 @@ BODY = """
   </div>
   <div class="divider plain" id="d4" style="display:none"></div>
   <div class="card" id="intvpanel" style="display:none">
-    <h3>Intervention console — observer control</h3>
-    <div class="sub" id="intvhint">Take manual control of one subject; the engine
-      still computes their interior — you override only the outward action, routed
-      through the normal world path. This is a behavioural probe, not a game.</div>
+    <h3>Intervention console — observer control
+      <span class="modetag" id="intvmode"></span></h3>
+    <div class="sub" id="intvhint">Take control of one subject at the live frontier;
+      the engine still computes their interior — you override only the outward
+      action, routed through the normal world path. A behavioural probe, not a
+      game. (The static export is read-only replay.)</div>
+    <details class="intvhelp"><summary>How to use this console</summary>
+      <p class="sub">You influence the world only at the <b>live frontier</b> — the
+        latest computed moment. There is no future scheduling: you act now, and the
+        future emerges from that new state. The time scrubber is a <i>history
+        review</i> tool, read-only except at the frontier.</p>
+      <ol>
+        <li><b>Start live session</b> (live cockpit only). The static export is a
+          recorded run — read-only.</li>
+        <li><b>Pick a subject.</b> They remain a normal NPC: the engine keeps
+          computing their interior (boredom, fatigue, anger, relations,
+          potentials, and their own autonomous choice). You override only the
+          <i>outward</i> action.</li>
+        <li><b>Choose mode.</b> AUTO = watch the engine drive. MANUAL = your action
+          replaces their outward action at the frontier (on ticks you don't act in
+          MANUAL the subject stays outwardly silent — switch to AUTO to let the
+          engine drive again).</li>
+        <li><b>Engine would…</b> (optional) shows what the engine would have the
+          subject do — read-only, for reference, never forced.</li>
+        <li><b>Pick an action and target.</b> Targets are only the cast co-located
+          with the subject <i>at the live frontier</i> (no telepathy). Validation
+          happens when you apply, against the live state.</li>
+        <li><b>Apply now and continue</b> routes your action through the normal
+          world path at the frontier tick, then advances so the world responds.
+          <b>Advance ▶</b> moves forward without acting.</li>
+        <li><b>Reviewing history?</b> Scrub back to inspect; controls are disabled.
+          <b>Return to live frontier</b> to intervene again.</li>
+      </ol>
+      <p class="sub">Three honest tracks: the <b>behavioural-cycle ribbon</b>
+        (idle · seeking · busy · rest · sleep) = <b>engine truth</b>, never
+        overridden; <b>room / position</b> = world &amp; schedule truth; the
+        <b>teal intervention marks</b> = observer influence. Your override changes
+        the outward action, not the subject's mode — though the ribbon may still
+        shift <i>indirectly</i> as the world responds. The Why panel reflects the
+        moment at the current playhead.</p>
+    </details>
+    <div class="intvgrid">
+      <div class="intvbox"><div class="bh">Controlled subject</div>
+        <div class="bc" id="intvsubjectc">—</div></div>
+      <div class="intvbox"><div class="bh">Engine suggestion (read-only)</div>
+        <div class="bc" id="intvenginec">—</div></div>
+      <div class="intvbox"><div class="bh">Latest intervention</div>
+        <div class="bc" id="intvresultc">—</div></div>
+      <div class="intvbox"><div class="bh">Intervention summary</div>
+        <div class="bc" id="intvsummaryc">—</div></div>
+    </div>
     <div class="bar" id="intvconsole"></div>
+    <div class="intvbox" id="intvllm"><div class="bh">Natural-language intervention
+      (optional)</div><div class="bc" id="intvllmc">—</div></div>
     <div class="intvlog" id="intvlog"></div>
   </div>
   <div class="footer"><img id="footemblem" alt=""><br>
@@ -385,7 +469,9 @@ function buildRibbons(){const n=MODEL.ticks.length, w=Math.min(880,Math.max(320,
       <canvas data-p="${p}" width="${w}" height="${h}"></canvas></div>`).join('')
     +`<div class="rib"><span class="pn"></span><canvas id="axis" width="${w}" height="14"></canvas></div>`
     +`<div class="legend">`+Object.entries(MODE_COLOR).map(([k,c])=>`<span><span class="dot" style="background:${c}"></span>${k}</span>`).join('')
-    +` <span><span class="dot" style="background:var(--incident)"></span>incident</span></div>`;
+    +` <span><span class="dot" style="background:var(--incident)"></span>incident</span>`
+    +` <span><span class="dot" style="background:#2a9aa0"></span>intervention (observer)</span>`
+    +`</div>`;
   document.querySelectorAll('#ribbons canvas[data-p]').forEach(cv=>{
     const p=cv.dataset.p, ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
     for(let i=0;i<n;i++){const m=MODEL.ticks[i].personas[p].mode;
@@ -394,8 +480,47 @@ function buildRibbons(){const n=MODEL.ticks.length, w=Math.min(880,Math.max(320,
       if(MODEL.ticks[i].night){ctx.fillStyle='rgba(40,30,60,.10)'; // faint night veil over the colour
         ctx.fillRect(i/n*W,0,Math.ceil(W/n)+0.6,H);}}
     ctx.fillStyle='#b5532e';
-    MODEL.incidents.forEach(inc=>{const i=tickIndex(inc.t);if(i>=0)ctx.fillRect(i/n*W,0,2,H);});});
+    MODEL.incidents.forEach(inc=>{const i=tickIndex(inc.t);if(i>=0)ctx.fillRect(i/n*W,0,2,H);});
+    // M-I: mark the observer's manual actions on the controlled subject's ribbon.
+    // A full-height teal bar + a brighter cap notch at top, so a user action reads
+    // distinctly from the red incident ticks. The marks are interactive: hover for
+    // a note, click to jump the playhead to that action (see attachMarkHover).
+    const marks=[];
+    (MODEL.interventions||[]).forEach(x=>{if(x.subject===p&&x.selected_by==='manual_override'){
+      const i=tickIndex(x.t); if(i<0)return; const xpx=i/n*W;
+      ctx.fillStyle='#1f6f72'; ctx.fillRect(xpx,0,3,H);                 // the action moment
+      ctx.fillStyle='#39c2c9'; ctx.fillRect(Math.max(0,xpx-1),0,5,4);  // bright cap notch
+      marks.push({px:xpx,iv:x});
+    }});
+    attachMarkHover(cv,p,marks,n,W);});
   drawPlayhead();}
+// Tooltip + click-to-seek for the teal intervention marks on a ribbon. Hovering a
+// mark pops a note about that action; clicking it (or anywhere on the ribbon)
+// moves the playhead — the slider and the ribbon both scrub time.
+function showTip(html,x,y){const t=$('tip'); if(!t)return;
+  t.innerHTML=html; t.style.display='block';
+  t.style.left=Math.min(x+12,window.innerWidth-272)+'px';
+  t.style.top=Math.min(y+14,window.innerHeight-90)+'px';}
+function hideTip(){const t=$('tip'); if(t)t.style.display='none';}
+function ivTipHtml(iv){const at=iv.target?(' → '+nm(iv.target)):'';
+  return `<b>${nm(iv.subject)} — manual intervention</b><br>day ${iv.day} ${iv.clock}<br>`
+    +`you chose: ${ivLabel(iv.user_selected_action)}${at}<br>`
+    +`engine would: ${fmt(iv.engine_would_have_selected)}`
+    +(iv.route?`<br><i>route: ${iv.route}</i>`:'')
+    +(iv.llm?`<br><i>from text: “${iv.llm.original_text||''}”</i>`:'');}
+function attachMarkHover(cv,p,marks,n,W){
+  const hitOf=ev=>{const r=cv.getBoundingClientRect(), sx=W/r.width,
+    mx=(ev.clientX-r.left)*sx; return marks.find(mk=>Math.abs(mk.px-mx)<=6);};
+  cv.style.cursor=marks.length?'pointer':'default';
+  cv.onmousemove=ev=>{const hit=hitOf(ev);
+    if(hit){showTip(ivTipHtml(hit.iv),ev.clientX,ev.clientY); cv.style.cursor='pointer';}
+    else{hideTip(); cv.style.cursor=marks.length?'pointer':'crosshair';}};
+  cv.onmouseleave=hideTip;
+  cv.onclick=ev=>{const hit=hitOf(ev); let i;
+    if(hit)i=tickIndex(hit.iv.t);
+    else{const r=cv.getBoundingClientRect(), sx=W/r.width;
+      i=Math.max(0,Math.min(MODEL.ticks.length-1,Math.round((ev.clientX-r.left)*sx/W*n)));}
+    selected=p; frame=i; const sc=$('scrub'); if(sc)sc.value=frame; render();};}
 function drawPlayhead(){const n=MODEL.ticks.length, ax=$('axis'); if(!ax)return;
   const ctx=ax.getContext('2d'); ctx.clearRect(0,0,ax.width,ax.height);
   ctx.fillStyle='#3a2f24'; ctx.fillRect(frame/n*ax.width,0,2,ax.height);
@@ -437,34 +562,124 @@ function renderMetrics(){const m=MODEL.metrics;
   $('metrics').innerHTML=cells.map(([k,v,ic])=>
     `<div class="metric"><div class="v">${v}</div><div class="k">${ic?img(ic):''}${k}</div></div>`).join('');}
 
-function renderWhy(){const p=selected||MODEL.cast[0]; const lines=(MODEL.why&&MODEL.why[p])||[];
-  $('why').innerHTML=`<div class="head">${MODEL.display_names[p]}</div>`+
-    (lines.length?lines.map((l,i)=>`<div class="${i===0?'head':'ln'}">${l}</div>`).join('')
-      :'<div class="ln">nothing to explain yet.</div>');}
+// Frame-aware causality: explain the selected persona's most recent notable
+// moment AT OR BEFORE the current playhead (not the whole-run end), built from
+// the model's transitions / reactions / interventions so it follows scrubbing.
+function ivLabel(v){return (v==='noop'||v==='observe')
+  ?'manual silence (no outward action)':fmt(v);}
+function renderWhy(){const p=selected||MODEL.cast[0];
+  const cur=MODEL.ticks[frame].t; let best=null;
+  const consider=(t,lines)=>{if(t<=cur&&(!best||t>=best.t))best={t,lines};};
+  // reactions first, then transitions, then interventions LAST so a manual
+  // override wins ties at the same tick.
+  (MODEL.reactions||[]).forEach(r=>{if(r.actor===p){
+    const at=(r.target&&r.target!==p)?(' at '+nm(r.target)):'';
+    consider(r.t,[`${nm(p)} ${fmt(r.action)}${at} (${r.clock}).`,
+      `← a social reaction seen as ${fmt(r.as)}.`]);}});
+  (MODEL.transitions||[]).forEach(x=>{if(x.pid===p&&x.driver
+      &&['SEEKING','BUSY','SLEEP','COOLDOWN'].includes(x.new)){
+    consider(x.t,[`${nm(p)} chose to ${fmt(x.action||x.new.toLowerCase())} (${x.clock}, day ${x.day}).`,
+      `← ${x.driver} was ${x.driver_value} when the drive crossed threshold.`]);}});
+  (MODEL.interventions||[]).forEach(iv=>{if(iv.subject===p&&iv.selected_by==='manual_override'){
+    const at=iv.target?(' at '+nm(iv.target)):'';
+    consider(iv.t,[`${nm(p)} — MANUAL OVERRIDE by the observer (${iv.clock}, day ${iv.day}).`,
+      `you chose: ${ivLabel(iv.user_selected_action)}${at}`,
+      `the engine would have selected: ${fmt(iv.engine_would_have_selected)}.`]);}});
+  const lines=best?best.lines
+    :[`Nothing notable yet for ${nm(p)} by ${MODEL.ticks[frame].clock}.`];
+  $('why').innerHTML=`<div class="head">${nm(p)}</div>`+
+    lines.map((l,i)=>`<div class="${i===0?'head':'ln'}">${l}</div>`).join('');}
 
-// M-G: read-only intervention log. Shown only when the run carried observer
-// overrides (autonomous runs never set MODEL.interventions), so the autonomous
-// page and the G2 parity model are unchanged.
-function renderInterventions(){const iv=MODEL.interventions||[]; const panel=$('intvpanel');
-  if(!panel)return;
-  const cur=MODEL.ticks[frame].t;
-  if(!iv.length && !(window.IS_COCKPIT)){panel.style.display='none';return;}
+// M-G/M-H (M-I integration): read-only intervention console. The UI consumes the
+// model's intervention fields — it never recomputes engine behaviour. The panel
+// shows when the run carried overrides OR when live controls are present
+// (IS_COCKPIT); a purely autonomous static page leaves MODEL.interventions unset
+// and the panel stays hidden, so that page (and the G2 parity model) is unchanged.
+function lastSelectedBy(x){
+  if(x.selected_by==='manual_override') return x.llm?'LLM-assisted manual override':'manual override';
+  if(x.selected_by==='manual_noop') return 'manual no-op (observer-held silence)';
+  return 'engine-selected (autonomous)';}
+function renderInterventions(){const iv=MODEL.interventions||[]; const ui=MODEL.intervention_ui||{};
+  const panel=$('intvpanel'); if(!panel)return;
+  const cur=MODEL.ticks[frame].t, cockpit=!!window.IS_COCKPIT;
+  if(!iv.length && !cockpit){panel.style.display='none';return;}
   panel.style.display='block'; const d4=$('d4'); if(d4)d4.style.display='block';
+  $('intvmode').textContent=cockpit?'live cockpit':'static replay mode';
+  $('intvmode').className='modetag '+(cockpit?'live':'static');
+
+  // A. Controlled subject — current NPC, mode, room, observer-facing state, and
+  //    whether its latest outward action was engine / manual / LLM-assisted.
+  const subj=(ui.controlled_subjects&&ui.controlled_subjects[0])||window.CONTROLLED||null;
   const overrides=iv.filter(x=>x.selected_by==='manual_override');
+  const seen=iv.filter(x=>x.subject===subj && x.t<=cur);
+  const last=seen.length?seen[seen.length-1]:null;
+  if(subj){const ps=MODEL.ticks[frame].personas[subj]||{};
+    const mode=cockpit?(window.CONTROL_MODE||'manual'):'recorded';
+    $('intvsubjectc').innerHTML=
+      `<div><b>${nm(subj)}</b> <span class="badge ${mode==='manual'?'man':'auto'}">${mode.toUpperCase()}</span></div>`
+      +`<div class="sub">${ps.mood||'—'} · ${ps.mode||'—'}${ps.action&&ps.action!=='neutral'?' · '+fmt(ps.action):''} · ${fmt(ps.room||'—')}</div>`
+      +`<div class="sub">latest action: <b>${last?lastSelectedBy(last):'engine-selected (autonomous)'}</b></div>`;
+  } else {$('intvsubjectc').innerHTML='<span class="sub">none — control a subject to intervene.</span>';}
+
+  // B. Engine suggestion (READ-ONLY): what the autonomous NPC would have done.
+  //    For a controlled subject this is the engine selection still recorded in
+  //    personas[subject].action — never recomputed in the UI.
+  if(subj){const eng=(MODEL.ticks[frame].personas[subj]||{}).action||'neutral';
+    $('intvenginec').innerHTML=`<div>would select: <b>${fmt(eng)}</b></div>`
+      +`<div class="sub">what ${nm(subj)} would do autonomously, this tick — for reference, not forced.</div>`;
+  } else {$('intvenginec').textContent='—';}
+
+  // D. Latest intervention result / causality.
+  if(last){const at=last.target?(' at '+nm(last.target)):'';
+    const reacts=(MODEL.reactions||[]).filter(r=>r.t>last.t && r.t<=last.t+6 && r.target===last.subject);
+    $('intvresultc').innerHTML=
+      `<div>you selected: <b>${fmt(last.user_selected_action||'—')}</b>${at}</div>`
+      +`<div class="sub">engine would have: ${fmt(last.engine_would_have_selected)} · route: ${last.route}</div>`
+      +(last.llm?`<div class="llmtag">from text: “${last.llm.original_text||''}”</div>`:'')
+      +(dev?`<div class="sub">selected_by: ${last.selected_by} · t${last.t}</div>`:'')
+      +(reacts.length?`<div class="sub">reactions: `
+        +reacts.map(r=>`${nm(r.actor)} ${fmt(r.as)}`).join(', ')+`</div>`:'');
+  } else {$('intvresultc').innerHTML='<span class="sub">no override yet — the subject is autonomous.</span>';}
+
+  // G. Concise summary.
+  const sm=ui.summary;
+  $('intvsummaryc').innerHTML = sm
+    ? `<div><b>${sm.n_overrides}</b> override(s)${sm.llm_assisted?` (${sm.llm_assisted} via text)`:''}</div>`
+      +`<div class="sub">by action: ${JSON.stringify(sm.by_action)}</div>`
+      +`<div class="sub">targets: ${Object.keys(sm.targets||{}).map(nm).join(', ')||'—'} · incidents after: ${sm.incidents_after}</div>`
+    : '<span class="sub">no interventions in this run.</span>';
+
+  // E. LLM panel — optional, gracefully disabled when no provider configured
+  //    (always disabled in the browser/Pyodide cockpit). Never blocks the palette.
+  const llmOn=!!ui.llm_enabled;
+  $('intvllmc').innerHTML = llmOn
+    ? '<div>Natural-language intervention is <b>enabled</b>. Type an instruction; '
+      +'it is mapped to a structured candidate, validated, and requires explicit '
+      +'confirmation before it runs through the manual path.</div>'
+      +'<div class="sub">(free-text box appears in the CLI; in the browser cockpit '
+      +'it stays disabled — no provider/key is available there.)</div>'
+    : '<span class="sub"><b>Browser cockpit uses safe action buttons.</b> '
+      +'Natural-language mapping is available in the CLI '
+      +'(set EQUILIBRIUM_INN_LLM_PROVIDER, then <code>say "…"</code> → <code>confirm</code>). '
+      +'This is intentional — no provider/key runs in the browser.</span>';
+
+  // F-feed. The override log (newest in view, up to the playhead).
   const shown=overrides.filter(x=>x.t<=cur);
   $('intvlog').innerHTML = overrides.length
     ? `<div class="sub">${overrides.length} manual override(s) this run; `
       +`${shown.length} so far at the playhead.</div>`
       +shown.map(x=>{const at=x.target?(' at '+nm(x.target)):'';
         const llm=x.llm?` <span class="llmtag">via text: “${(x.llm.original_text||'')}”</span>`:'';
+        const tag=x.llm?'LLM-assisted':'manual';
         return `<div class="ev intv"><span class="tt">${x.clock}</span><span>`
-          +`<b>${nm(x.subject)}</b> ${fmt(x.user_selected_action)}${at} `
+          +`<span class="badge man">${tag}</span> <b>${nm(x.subject)}</b> ${fmt(x.user_selected_action)}${at} `
           +`<span class="sub">(engine would have: ${fmt(x.engine_would_have_selected)})</span>${llm}`
           +`</span></div>`;}).join('')
     : '<div class="ev amb">no overrides yet — the subject is autonomous.</div>';}
 
 function select(p){selected=p;renderScene();renderCards();renderWhy();}
-function render(){renderHeader();renderScene();renderCards();renderStream();renderMetrics();renderWhy();renderInterventions();drawPlayhead();}
+function render(){renderHeader();renderScene();renderCards();renderStream();renderMetrics();renderWhy();renderInterventions();drawPlayhead();
+  if(window.afterRender)window.afterRender();}  // M-I: live cockpit frontier/history hook (noop in static export)
 function step(){frame=(frame+1)%MODEL.ticks.length;$('scrub').value=frame;render();}
 
 function init(){
@@ -505,6 +720,7 @@ def page(model: dict, assets: dict[str, str] | None = None,
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<link rel='icon' href='data:,'>"  # suppress the browser favicon request (no 404)
         "<title>Living Inn Observatory</title>"
         "<style>" + STYLE + "</style><style>" + _asset_css(assets) + "</style></head>"
         "<body>" + BODY +
