@@ -96,6 +96,19 @@ const PLAN_DESC={
 const ADV_STEP=30;   // "Advance ▶" step (~1 in-world hour)
 let PY=null, LIVE=null, PALETTE=[];
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
+// Loading progress bar: pct=null -> indeterminate (sliding) for the boot phases /
+// live advances; pct=0..100 -> determinate fill for the chunked autonomous compute.
+function showProgress(label, pct){
+  const bar=document.getElementById('c_progress'); if(!bar)return;
+  bar.style.display='block';
+  const fill=document.getElementById('c_progfill'), lbl=document.getElementById('c_proglbl');
+  if(pct==null){bar.classList.add('indet'); if(fill)fill.style.width='';}
+  else {bar.classList.remove('indet'); if(fill)fill.style.width=Math.max(0,Math.min(100,pct))+'%';}
+  if(lbl)lbl.textContent=label||'';
+  if(label!=null)setStatus(label);
+}
+function hideProgress(){const bar=document.getElementById('c_progress');
+  if(bar){bar.style.display='none'; bar.classList.remove('indet');}}
 function profileVal(){return (document.getElementById('c_profile')||{}).value||'game_semantic_profile';}
 function planVal(){return (document.getElementById('c_plan')||{}).value||'control';}
 function seedVal(){return parseInt((document.getElementById('c_seed')||{}).value||'7',10);}
@@ -213,26 +226,29 @@ function updateLiveControls(){
 }
 async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
-  setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
+  showProgress('seeding the world…', null); await new Promise(r=>setTimeout(r,20));
   try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
         subject||'',mode||'auto',initial,burstVal(),resVal());
     setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
   }catch(e){console.error(e); setStatus('live start failed: '+e);}
+  hideProgress();
 }
 async function liveAdvance(n){
   if(!LIVE){setStatus('still booting…');return;}
-  setStatus('advancing…'); await new Promise(r=>setTimeout(r,10));
+  showProgress('advancing the simulation…', null); await new Promise(r=>setTimeout(r,10));
   try{ await PY.globals.get('live_advance')(n); setStatus('live · frontier'); }
   catch(e){console.error(e); setStatus('advance failed: '+e);}
+  hideProgress();
 }
 async function doIntervene(verb,target,adv){
   if(!LIVE)return;
-  setStatus('intervening at the frontier…'); await new Promise(r=>setTimeout(r,10));
+  showProgress('intervening at the frontier…', null); await new Promise(r=>setTimeout(r,10));
   try{ const err=await PY.globals.get('live_intervene')(verb,target||'',adv||8);
     if(err){const h=document.getElementById('iv_hint'); if(h)h.textContent=err;
       setStatus('live · frontier');}
     else setStatus('live · intervention applied');
   }catch(e){console.error(e); setStatus('intervention failed: '+e);}
+  hideProgress();
 }
 async function dumpScenario(){
   if(!PY||!SESS_READY()){setStatus('still booting…');return;}
@@ -264,6 +280,8 @@ function buildControls(){
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
     <span id="p_status" class="sub">parity: idle</span>
     <span id="c_status" class="sub">booting Pyodide…</span>
+    <div id="c_progress" class="loadbar" style="display:none;flex-basis:100%">
+      <span id="c_progfill"></span><span id="c_proglbl"></span></div>
     <div id="c_help" style="flex-basis:100%;font-size:12px;color:var(--muted);line-height:1.5"></div>
     <div id="p_detail" style="flex-basis:100%;font-size:12px;color:var(--muted)"></div>`;
   document.getElementById('c_run').onclick=()=>doRun();
@@ -348,19 +366,23 @@ async function doRun(){
   const CHUNK=Math.max(500, Math.round(total/40));
   while(f<total){
     f=await PY.globals.get('live_advance_quiet')(CHUNK);
-    setStatus('computing the run… '+Math.round(100*f/Math.max(1,total))+'%');
+    showProgress('computing the run… '+Math.round(100*f/Math.max(1,total))+'%',
+                 100*f/Math.max(1,total));
     await new Promise(r=>setTimeout(r,0));        // hand the frame back to the browser
   }
+  showProgress('rendering…', 100);
   await PY.globals.get('live_emit')();            // single full model build + render
+  hideProgress();
   setStatus('ready — full run computed ('+total+' ticks)');
 }
 async function boot(){
   buildControls(); wireTabs();
+  showProgress('booting Pyodide…', null);
   try{
     PY=await loadPyodide({indexURL:"__PYODIDE__"});
-    setStatus('installing packages…');
+    showProgress('installing packages…', null);
     await PY.loadPackage(["micropip","numpy"]);  // engine.stability needs numpy
-    setStatus('loading the inn…');
+    showProgress('loading the inn…', null);
     await PY.runPythonAsync(`
 import micropip
 await micropip.install("pyyaml")
@@ -469,9 +491,9 @@ def palette_verbs():
     window.IS_COCKPIT=true;
     const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
     const pbtn=document.getElementById('c_parity'); if(pbtn)pbtn.disabled=false;
-    setStatus('ready — running first simulation…');
+    showProgress('preparing the first run…', null);
     await doRun();
-  }catch(e){console.error(e); setStatus('boot failed: '+e+' (see console)');}
+  }catch(e){console.error(e); hideProgress(); setStatus('boot failed: '+e+' (see console)');}
 }
 boot();
 </script>
@@ -507,7 +529,16 @@ def build_index() -> Path:
     tabcss = (".tabnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;"
               "gap:8px;padding:8px 22px;background:rgba(243,233,210,.92);"
               "backdrop-filter:saturate(1.1);border-bottom:1px solid var(--line)}"
-              ".tabnav .tabnote{color:var(--muted);font-size:12px;font-style:italic;margin-left:6px}")
+              ".tabnav .tabnote{color:var(--muted);font-size:12px;font-style:italic;margin-left:6px}"
+              # M-K loading progress bar (boot phases = indeterminate; chunked compute = %)
+              ".loadbar{height:18px;border:1px solid var(--line);border-radius:9px;overflow:hidden;"
+              "position:relative;background:rgba(42,154,160,.10);margin-top:4px}"
+              ".loadbar>#c_progfill{display:block;height:100%;width:0;border-radius:9px;"
+              "background:linear-gradient(90deg,#2a9aa0,#39c2c9);transition:width .2s}"
+              ".loadbar.indet>#c_progfill{width:34%;animation:tpslide 1.1s ease-in-out infinite}"
+              "@keyframes tpslide{0%{margin-left:-34%}100%{margin-left:100%}}"
+              ".loadbar>#c_proglbl{position:absolute;inset:0;text-align:center;line-height:18px;"
+              "font-size:11px;color:#1f6f72;font-variant-numeric:tabular-nums}")
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
