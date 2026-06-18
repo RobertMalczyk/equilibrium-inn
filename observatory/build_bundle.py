@@ -340,7 +340,19 @@ function wireTabs(){const tb=document.getElementById('tab_obs'),tp=document.getE
 // intervention, which leaves a mid-run frontier to act on.
 async function doRun(){
   window.afterRender=updateLiveControls;
-  await liveStart('', 'auto', 1000000000);   // advance_all (clamped to run length)
+  // Seed + wire the first frame, then advance to the end in CHUNKS, yielding to the UI
+  // between chunks so the page shows progress instead of freezing (a 15s-tick run is
+  // ~17k ticks). Only the FINAL emit rebuilds the model (one build, not per chunk).
+  await liveStart('', 'auto', 0);                 // ~2 h seed + wire + first frame
+  let info=liveInfo(); const total=info.total||0; let f=info.frontier||0;
+  const CHUNK=Math.max(500, Math.round(total/40));
+  while(f<total){
+    f=await PY.globals.get('live_advance_quiet')(CHUNK);
+    setStatus('computing the run… '+Math.round(100*f/Math.max(1,total))+'%');
+    await new Promise(r=>setTimeout(r,0));        // hand the frame back to the browser
+  }
+  await PY.globals.get('live_emit')();            // single full model build + render
+  setStatus('ready — full run computed ('+total+' ticks)');
 }
 async function boot(){
   buildControls(); wireTabs();
@@ -370,7 +382,14 @@ CFG = load_inn_config("inn.yaml")
 SESS = {"s": None}
 def _emit(first=False):
     s = SESS["s"]
-    model = O.build_model(s.records, CFG, meta={"subtitle":"live · cockpit"}, stride=1)
+    # M-K perf: at a finer dt the Observatory display (ribbons/scrubber/scene) does NOT
+    # need every tick — stride the observation model by the resolution factor so its
+    # payload stays ~7 MB / ~2k display ticks instead of 58 MB / 17k at R=8 (which froze
+    # the page on JSON.parse + a 17k-tick render). Events (transitions/incidents) stay
+    # full-fidelity. The Time Plots model below stays FULL-RES — that is what the fine dt
+    # is for (smooth curves).
+    stride = max(1, round(s.loop.resolution_factor))
+    model = O.build_model(s.records, CFG, meta={"subtitle":"live · cockpit"}, stride=stride)
     js.window.MODEL = js.JSON.parse(json.dumps(model))
     js.window.LIVE_ACTIVE = True
     js.window.CONTROLLED = s.subject
@@ -402,6 +421,12 @@ def scenario_json():
     return json.dumps(SESS["s"].dump_scenario("inn.yaml"), indent=2)
 def live_advance(n):
     SESS["s"].advance(int(n)); _emit()
+def live_advance_quiet(n):
+    # advance WITHOUT rebuilding/emitting the model — for chunked autonomous compute so
+    # the page can yield to the UI between chunks (progress) instead of one long freeze.
+    s = SESS["s"]; s.advance(int(n)); return s.frontier
+def live_emit():
+    _emit()
 def live_take_control(subject, mode):
     SESS["s"].take_control(subject or None, mode or "manual"); _emit()
 def live_release():

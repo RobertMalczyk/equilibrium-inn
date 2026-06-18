@@ -490,6 +490,22 @@ def d_memory():
     return status, f"peak {mb:,.0f} MB for a full 3-day run", {"peak_mb": round(mb)}
 
 
+@_check("D6", "Performance", "Display payload bounded at fine dt — strided observation model stays small")
+def d_payload():
+    # the cockpit strides the observation model by the resolution factor so the page
+    # payload stays ~constant (it froze at R=8 with a 58 MB / 17k-tick full model).
+    import inn.observe as O
+    _, d = _run("impulse", seed=7, resolution_factor=8.0)
+    recs = _records(d)
+    full = len(json.dumps(O.build_model(recs, CFG, stride=1)))
+    strided = len(json.dumps(O.build_model(recs, CFG, stride=8)))
+    ratio = full / max(1, strided)
+    assert strided < 12_000_000, f"strided model still {strided/1e6:.0f} MB"
+    assert ratio > 5, f"stride did not shrink the payload (ratio {ratio:.1f})"
+    return PASS, f"strided model {strided/1e6:.1f} MB vs full {full/1e6:.0f} MB at R=8 ({ratio:.0f}x smaller)", \
+        {"strided_mb": round(strided / 1e6, 1), "full_mb": round(full / 1e6), "shrink_x": round(ratio)}
+
+
 @_check("D5", "Performance", "Determinism under stress — many seeds each reproduce")
 def d_stress_determinism():
     mism = 0
@@ -594,7 +610,7 @@ CHECKS = [
     f_intervention, f_live_equiv, f_transducer_coverage, f_models, f_baseline,
     b_state_bounds, b_clock_presence, b_resolution_convergence, b_purity,
     c_config_fuzz, c_intervention_fuzz, c_trace_robust,
-    d_throughput, d_scaling, d_footprint, d_memory, d_stress_determinism,
+    d_throughput, d_scaling, d_footprint, d_memory, d_payload, d_stress_determinism,
     e_corridor, e_saturation, e_resolution_bounded,
     f_g2, f_golden,
 ]

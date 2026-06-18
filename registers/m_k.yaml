@@ -115,6 +115,21 @@ followup-ui-2 (user ask 2026-06-17): more speed steps + readable fine-dt plots.
   - tests/test_timeplots.py +1 (Fit-Y button + yRange present). Browser-verified: Fit Y
     makes all facets' curves clearly visible; speeds 1..2000x; 0 console errors.
 
+perf-fix-2026-06-18 (cockpit froze at 15s tick): verified loading times by stage — at
+  R=8 a 3-day run is 17,214 ticks; CPython: advance 23s, build_model 2.9s, plot 2.0s, and
+  the OBSERVATION model serialized to 58 MB JSON (Pyodide is several× slower + blocks the
+  page main thread → freeze). Two fixes in observatory/build_bundle.py:
+  - _emit strides the observation model by round(resolution_factor) — display ribbons/
+    scrubber/scene don't need 17k ticks; payload 58 MB -> 7.4 MB / 2,152 display ticks at
+    R=8, build 2.9s -> 1.2s (events kept full-fidelity). The Time Plots model stays
+    FULL-RES (that's what fine dt is for).
+  - doRun (Review autonomous run) advances in CHUNKS (live_advance_quiet) yielding to the
+    UI between chunks with a "computing… N%" status, then ONE final live_emit — so the
+    long compute shows progress instead of a hard freeze.
+  Browser-verified at R=4: MODEL display ticks 2,152 (strided), TPMODEL 8,607 (full-res),
+  completes ~35s with progress, 0 console errors. New QA guard qa D6 (strided model < 12 MB
+  and >=5x smaller than full at R=8) so this can't silently regress.
+
 still-recommended (not blocking the merge):
   - A G0 spot-check on the finer-dt mode before trusting ITS incident corridor for analysis
     (the finer dt is a new operating point; default 120 s corridor is unchanged).
