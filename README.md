@@ -330,6 +330,18 @@ inn.yaml        the entire inn as data (all behaviour-shaping numbers)
 CLAUDE.md       the binding project contract
 ```
 
+## AI-Assisted Development
+
+This repository openly uses AI-assisted coding tools, including
+[Claude Code](https://claude.com/claude-code), as an implementation accelerator —
+for example, drafting code from explicit specs, test scaffolding, refactoring, and
+documentation drafts. The conceptual model, architecture decisions, validation, and
+final responsibility are **human-owned**: AI output is treated as a reviewed
+implementation draft, not as authoritative, and is accepted only when it satisfies
+the project contract ([`CLAUDE.md`](CLAUDE.md)) and passes the automated checks
+(determinism, golden traces, scenario replay, and around 250 tests). See
+[`AI_USAGE.md`](AI_USAGE.md) for the full policy.
+
 ## License
 
 [Apache License 2.0](LICENSE). Copyright 2026 Robert Malczyk.
