@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1] / "equilibrium-engine"
-PINNED_COMMIT = "0176dbd78ba7b7eaa0cebbbb43392779469547a4"  # M20.1 burst/outburst calibration (calibrated_burst.yaml overlay)
+PINNED_COMMIT = "311be038b5e8ee7e0ad931ea66f9f896c21be9a9"  # S2-S4 dt resolution_factor (refines dt; guarded no-op at 1.0) + decoupled refractory edge (off by default)
 
 
 def _engine_commit() -> str:

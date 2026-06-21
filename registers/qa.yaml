@@ -1,0 +1,41 @@
+artifact: QA battery (functional + non-functional) — engine-promotion gate
+state: IMPLEMENTED on branch m-k-tick-resolution-speed. 27 deep checks, VERDICT PROMOTE
+  (27 pass / 0 warn / 0 fail). Emits qa/qa_report.md + qa/qa_report.html; CI-wrapped by
+  tests/test_qa_battery.py (asserts no FAIL). Complements the 228-test unit suite.
+updated: 2026-06-18
+
+what:
+  qa/qa_suite.py — a standalone, report-generating battery that stresses the inn (and
+  through it the engine) far harder than the unit tests, then renders a MD + HTML report
+  with a PROMOTE/HOLD verdict + per-check metrics + environment. Run: `python -m qa.qa_suite`.
+
+categories (27 checks):
+  - Functional (F1-F10): determinism; session replay; lossless scenario dump/replay +
+    tamper-reject; resolution_factor R=1 byte-identical + scaling + reproduce; burst_overlay
+    OFF==default / ON changes+reproduces; intervention no-control-identical + override
+    recorded + self-target reject; LiveSession==batch bit-identical; transducer coverage;
+    observe+timeplots models serialise; baseline schema parity + flatter cascades.
+  - Invariants (B1-B4, property over seeds/plans/resolutions): all global states finite &
+    in [0,1] + t-monotone + known actions/events; clock/day/night derive from dt + presence
+    rooms valid; resolution refinement preserves the real-time trajectory (convergent
+    end-of-day-1 error R4/R8 < 0.05); model builders pure (no trace mutation) + idempotent.
+  - Robustness/fuzz (C1-C3): config validation rejects a battery of malformed inn.yaml
+    mutations; invalid interventions (unknown verb/self/absent/target-less) rejected;
+    empty/corrupt trace reads gracefully.
+  - Performance/non-functional (D1-D5): throughput (persona-ticks/s); resolution wall-time
+    scaling ~linear in ticks; trace bytes/tick; peak memory; determinism under stress
+    (20 seeds each reproduce).
+  - Stability/boundedness (E1-E3): incident corridor bounded (no runaway); UPPER-clamp
+    saturation low + envelopes in [0,1]; finer dt doesn't explode incidents.
+  - Parity (F-G2, F-GOLD): fresh CPython run matches the G2 reference SHA; canonical control
+    session matches the frozen golden.
+
+note: authoring the battery surfaced 4 over-strict/incorrect ASSERTIONS (not product bugs)
+  and they were corrected to the real contracts: (1) the inn is seed-insensitive for the
+  canonical plans (no stochastic pick fires) so "different seed differs" is not a contract;
+  (2) AUTO-with-subject legitimately annotates the trace — the byte-identical invariant is
+  no-SUBJECT control == autonomous; (3) a frontier intervention must target a CO-LOCATED
+  persona (use a daytime frontier); (4) saturation = UPPER-clamp dwell only (time at 0.0 is
+  calm, healthy). Product behaviour was correct throughout.
+
+reports: qa/qa_report.md + qa/qa_report.html (regenerable; committed as the gate's evidence).

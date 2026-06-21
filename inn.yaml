@@ -2,7 +2,7 @@
 # No behavior-shaping numeric literal may live in code; it lives here.
 meta:
   version: 1
-  engine_commit: "0176dbd78ba7b7eaa0cebbbb43392779469547a4"
+  engine_commit: "311be038b5e8ee7e0ad931ea66f9f896c21be9a9"
   days: 3
 
 # Cast list order IS the contention tiebreak order (section 5).

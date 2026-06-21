@@ -96,10 +96,25 @@ const PLAN_DESC={
 const ADV_STEP=30;   // "Advance ▶" step (~1 in-world hour)
 let PY=null, LIVE=null, PALETTE=[];
 function setStatus(t){const s=document.getElementById('c_status'); if(s)s.textContent=t;}
+// Loading progress bar: pct=null -> indeterminate (sliding) for the boot phases /
+// live advances; pct=0..100 -> determinate fill for the chunked autonomous compute.
+function showProgress(label, pct){
+  const bar=document.getElementById('c_progress'); if(!bar)return;
+  bar.style.display='block';
+  const fill=document.getElementById('c_progfill'), lbl=document.getElementById('c_proglbl');
+  if(pct==null){bar.classList.add('indet'); if(fill)fill.style.width='';}
+  else {bar.classList.remove('indet'); if(fill)fill.style.width=Math.max(0,Math.min(100,pct))+'%';}
+  if(lbl)lbl.textContent=label||'';
+  if(label!=null)setStatus(label);
+}
+function hideProgress(){const bar=document.getElementById('c_progress');
+  if(bar){bar.style.display='none'; bar.classList.remove('indet');}}
 function profileVal(){return (document.getElementById('c_profile')||{}).value||'game_semantic_profile';}
 function planVal(){return (document.getElementById('c_plan')||{}).value||'control';}
 function seedVal(){return parseInt((document.getElementById('c_seed')||{}).value||'7',10);}
 function burstVal(){return !!(document.getElementById('c_burst')||{}).checked;}
+function resVal(){return parseFloat((document.getElementById('c_res')||{}).value||'1');}
+function speedVal(){return parseFloat((document.getElementById('c_speed')||{}).value||'1');}
 
 // ---- M-I LIVE-FRONTIER cockpit ------------------------------------------------
 // The observer influences the world ONLY at the live frontier (the latest computed
@@ -211,26 +226,29 @@ function updateLiveControls(){
 }
 async function liveStart(subject,mode,initial){
   if(!PY){setStatus('still booting…');return;}
-  setStatus('starting live intervention…'); await new Promise(r=>setTimeout(r,20));
+  showProgress('seeding the world…', null); await new Promise(r=>setTimeout(r,20));
   try{ await PY.globals.get('live_start')(profileVal(),planVal(),seedVal(),
-        subject||'',mode||'auto',initial,burstVal());
+        subject||'',mode||'auto',initial,burstVal(),resVal());
     setStatus('live · frontier'+(subject?(' · controlling '+subject):''));
   }catch(e){console.error(e); setStatus('live start failed: '+e);}
+  hideProgress();
 }
 async function liveAdvance(n){
   if(!LIVE){setStatus('still booting…');return;}
-  setStatus('advancing…'); await new Promise(r=>setTimeout(r,10));
+  showProgress('advancing the simulation…', null); await new Promise(r=>setTimeout(r,10));
   try{ await PY.globals.get('live_advance')(n); setStatus('live · frontier'); }
   catch(e){console.error(e); setStatus('advance failed: '+e);}
+  hideProgress();
 }
 async function doIntervene(verb,target,adv){
   if(!LIVE)return;
-  setStatus('intervening at the frontier…'); await new Promise(r=>setTimeout(r,10));
+  showProgress('intervening at the frontier…', null); await new Promise(r=>setTimeout(r,10));
   try{ const err=await PY.globals.get('live_intervene')(verb,target||'',adv||8);
     if(err){const h=document.getElementById('iv_hint'); if(h)h.textContent=err;
       setStatus('live · frontier');}
     else setStatus('live · intervention applied');
   }catch(e){console.error(e); setStatus('intervention failed: '+e);}
+  hideProgress();
 }
 async function dumpScenario(){
   if(!PY||!SESS_READY()){setStatus('still booting…');return;}
@@ -255,11 +273,15 @@ function buildControls(){
     <label title="What gets injected into the run — the canonical probe protocol.">protocol <select id="c_plan">${opts(PLANS,PLAN_DESC)}</select></label>
     <label title="Deterministic RNG seed. Same profile + protocol + seed → byte-identical run.">seed <input id="c_seed" type="number" value="7" style="width:64px"></label>
     <label title="Advanced/experimental: flip the engine's calibrated burst overlay (latch/escalation/extinction) ON. Ships OFF — in the coupled 7-NPC room it can amplify to runaway (see M-B). For experiments only; recorded in the scenario so it stays reproducible.">advanced outburst <input id="c_burst" type="checkbox"></label>
+    <label title="Tick resolution: finer dt = more ticks for the same 3 days = smoother plots. The real-time trajectory is preserved (engine resolution_factor). 120s = canonical (byte-identical); finer dt is a new operating point. Heavier (8x ticks at 15s).">resolution <select id="c_res"><option value="1">120 s (canonical)</option><option value="4">30 s</option><option value="8">15 s</option></select></label>
+    <label title="Playback speed. 1x = real-time (one tick per dt real-seconds); higher = faster. At the 120s default even 20x is slow, so high multipliers (up to 200x) make play watchable; at finer dt lower ones suffice. Preserves the 3 game-days as the unit being traversed. Playback only — no effect on dynamics.">speed <select id="c_speed"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option><option value="8">8x</option><option value="20">20x</option><option value="50">50x</option><option value="100">100x</option><option value="200" selected>200x</option><option value="500">500x</option><option value="750">750x</option><option value="1000">1000x</option><option value="2000">2000x</option></select></label>
     <button id="c_run" disabled title="Compute the full 3-day, 7-NPC autonomous run in-browser and review it (read-only history). To intervene, use Start live intervention below.">Review autonomous run</button>
     <span class="grow"></span>
     <button id="c_parity" disabled title="Run the fixed G2 session (control · seed 7 · 1000 ticks) in-browser and compare its trace SHA-256 to the CPython reference. Closes the G2 parity gate when it matches.">Verify parity</button>
     <span id="p_status" class="sub">parity: idle</span>
     <span id="c_status" class="sub">booting Pyodide…</span>
+    <div id="c_progress" class="loadbar" style="display:none;flex-basis:100%">
+      <span id="c_progfill"></span><span id="c_proglbl"></span></div>
     <div id="c_help" style="flex-basis:100%;font-size:12px;color:var(--muted);line-height:1.5"></div>
     <div id="p_detail" style="flex-basis:100%;font-size:12px;color:var(--muted)"></div>`;
   document.getElementById('c_run').onclick=()=>doRun();
@@ -274,6 +296,9 @@ function buildControls(){
       +`<b>Verify parity</b> checks Pyodide matches CPython.`;};
   document.getElementById('c_profile').onchange=refresh;
   document.getElementById('c_plan').onchange=refresh;
+  // M-K: the speed selector drives the shared real-time playback loop live.
+  window.PLAY_SPEED=speedVal();
+  document.getElementById('c_speed').onchange=()=>{window.PLAY_SPEED=speedVal();};
   refresh();
 }
 function pstat(t,color){const s=document.getElementById('p_status');
@@ -333,15 +358,31 @@ function wireTabs(){const tb=document.getElementById('tab_obs'),tp=document.getE
 // intervention, which leaves a mid-run frontier to act on.
 async function doRun(){
   window.afterRender=updateLiveControls;
-  await liveStart('', 'auto', 1000000000);   // advance_all (clamped to run length)
+  // Seed + wire the first frame, then advance to the end in CHUNKS, yielding to the UI
+  // between chunks so the page shows progress instead of freezing (a 15s-tick run is
+  // ~17k ticks). Only the FINAL emit rebuilds the model (one build, not per chunk).
+  await liveStart('', 'auto', 0);                 // ~2 h seed + wire + first frame
+  let info=liveInfo(); const total=info.total||0; let f=info.frontier||0;
+  const CHUNK=Math.max(500, Math.round(total/40));
+  while(f<total){
+    f=await PY.globals.get('live_advance_quiet')(CHUNK);
+    showProgress('computing the run… '+Math.round(100*f/Math.max(1,total))+'%',
+                 100*f/Math.max(1,total));
+    await new Promise(r=>setTimeout(r,0));        // hand the frame back to the browser
+  }
+  showProgress('rendering…', 100);
+  await PY.globals.get('live_emit')();            // single full model build + render
+  hideProgress();
+  setStatus('ready — full run computed ('+total+' ticks)');
 }
 async function boot(){
   buildControls(); wireTabs();
+  showProgress('booting Pyodide…', null);
   try{
     PY=await loadPyodide({indexURL:"__PYODIDE__"});
-    setStatus('installing packages…');
+    showProgress('installing packages…', null);
     await PY.loadPackage(["micropip","numpy"]);  // engine.stability needs numpy
-    setStatus('loading the inn…');
+    showProgress('loading the inn…', null);
     await PY.runPythonAsync(`
 import micropip
 await micropip.install("pyyaml")
@@ -352,41 +393,48 @@ zipfile.ZipFile(io.BytesIO(await resp.bytes())).extractall(".")
 root = os.getcwd()
 if root not in sys.path: sys.path.insert(0, root)
 from inn.config import load_inn_config
-from inn.engine_surface import believable_day_layout
 from inn.live import LiveSession
 import inn.observe as O
 import inn.timeplots as TP
 import js
 CFG = load_inn_config("inn.yaml")
-DAY = believable_day_layout()["day_ticks"]
-TOTAL = CFG.days*DAY
-HOUR = max(1, round(DAY/24))          # ticks per in-world hour
-SEED_TICKS = 2*HOUR                    # seed the first ~2 hours of day 1 so there
-                                       # is a scene to act on; the rest is the user's
 # M-I live-frontier: ONE persistent session. The observer acts only at the live
 # frontier (inn.live.LiveSession — the same class the CPython tests pin); the
 # future emerges from that new state. No future-queue.
 SESS = {"s": None}
 def _emit(first=False):
     s = SESS["s"]
-    model = O.build_model(s.records, CFG, meta={"subtitle":"live · cockpit"}, stride=1)
+    # M-K perf: at a finer dt the Observatory display (ribbons/scrubber/scene) does NOT
+    # need every tick — stride the observation model by the resolution factor so its
+    # payload stays ~7 MB / ~2k display ticks instead of 58 MB / 17k at R=8 (which froze
+    # the page on JSON.parse + a 17k-tick render). Events (transitions/incidents) stay
+    # full-fidelity. The Time Plots model below stays FULL-RES — that is what the fine dt
+    # is for (smooth curves).
+    stride = max(1, round(s.loop.resolution_factor))
+    model = O.build_model(s.records, CFG, meta={"subtitle":"live · cockpit"}, stride=stride)
     js.window.MODEL = js.JSON.parse(json.dumps(model))
     js.window.LIVE_ACTIVE = True
     js.window.CONTROLLED = s.subject
     js.window.CONTROL_MODE = s.mode
     # M-J: the SAME render layer as the static plots.html, fed the live trace.
     # Observability only — reads s.records, never re-runs/changes the sim.
-    pm = TP.build_plot_model(s.records, CFG, meta={"subtitle":"live · cockpit"})
+    pm = TP.build_plot_model(s.records, CFG, dt=float(s.loop.clock.dt),
+                             meta={"subtitle":"live · cockpit"})
     pm["__root"] = "#tpc"
     js.window.TPMODEL = js.JSON.parse(json.dumps(pm))
+    js.window.PLAY_DT = float(s.loop.clock.dt)   # M-K: seconds/tick for real-time playback
     if first: js.init()       # one-time wiring (scrub/play/dev handlers)
     js.liveRefresh()          # follow the frontier + (re)build the live console
-def live_start(profile, plan, seed, subject, mode, initial, burst=False):
-    init = int(initial)
-    init = (SEED_TICKS if init <= 0 else init)       # seed ~2 h of day 1, rest is live
-    SESS["s"] = LiveSession(CFG, profile, plan, int(seed), TOTAL,
+def live_start(profile, plan, seed, subject, mode, initial, burst=False, resolution=1.0):
+    # M-K: resolution refines dt; total ticks derive from the refined clock so the
+    # 3 game-days hold. SEED_TICKS (~2 h of day 1) is computed from the refined day.
+    SESS["s"] = LiveSession(CFG, profile, plan, int(seed), None,
                             subject=(subject or None), mode=(mode or "auto"),
-                            burst_overlay=bool(burst))
+                            burst_overlay=bool(burst),
+                            resolution_factor=float(resolution))
+    day = SESS["s"].loop.clock.day_ticks
+    init = int(initial)
+    init = (2*max(1, round(day/24)) if init <= 0 else init)
     SESS["s"].advance(init)
     _emit(first=True)
 def scenario_json():
@@ -395,6 +443,12 @@ def scenario_json():
     return json.dumps(SESS["s"].dump_scenario("inn.yaml"), indent=2)
 def live_advance(n):
     SESS["s"].advance(int(n)); _emit()
+def live_advance_quiet(n):
+    # advance WITHOUT rebuilding/emitting the model — for chunked autonomous compute so
+    # the page can yield to the UI between chunks (progress) instead of one long freeze.
+    s = SESS["s"]; s.advance(int(n)); return s.frontier
+def live_emit():
+    _emit()
 def live_take_control(subject, mode):
     SESS["s"].take_control(subject or None, mode or "manual"); _emit()
 def live_release():
@@ -437,9 +491,9 @@ def palette_verbs():
     window.IS_COCKPIT=true;
     const btn=document.getElementById('c_run'); if(btn)btn.disabled=false;
     const pbtn=document.getElementById('c_parity'); if(pbtn)pbtn.disabled=false;
-    setStatus('ready — running first simulation…');
+    showProgress('preparing the first run…', null);
     await doRun();
-  }catch(e){console.error(e); setStatus('boot failed: '+e+' (see console)');}
+  }catch(e){console.error(e); hideProgress(); setStatus('boot failed: '+e+' (see console)');}
 }
 boot();
 </script>
@@ -475,7 +529,16 @@ def build_index() -> Path:
     tabcss = (".tabnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;"
               "gap:8px;padding:8px 22px;background:rgba(243,233,210,.92);"
               "backdrop-filter:saturate(1.1);border-bottom:1px solid var(--line)}"
-              ".tabnav .tabnote{color:var(--muted);font-size:12px;font-style:italic;margin-left:6px}")
+              ".tabnav .tabnote{color:var(--muted);font-size:12px;font-style:italic;margin-left:6px}"
+              # M-K loading progress bar (boot phases = indeterminate; chunked compute = %)
+              ".loadbar{height:18px;border:1px solid var(--line);border-radius:9px;overflow:hidden;"
+              "position:relative;background:rgba(42,154,160,.10);margin-top:4px}"
+              ".loadbar>#c_progfill{display:block;height:100%;width:0;border-radius:9px;"
+              "background:linear-gradient(90deg,#2a9aa0,#39c2c9);transition:width .2s}"
+              ".loadbar.indet>#c_progfill{width:34%;animation:tpslide 1.1s ease-in-out infinite}"
+              "@keyframes tpslide{0%{margin-left:-34%}100%{margin-left:100%}}"
+              ".loadbar>#c_proglbl{position:absolute;inset:0;text-align:center;line-height:18px;"
+              "font-size:11px;color:#1f6f72;font-variant-numeric:tabular-nums}")
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"

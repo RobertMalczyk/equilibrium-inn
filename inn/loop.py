@@ -64,25 +64,48 @@ def _deep_merge(a: dict, b: dict) -> dict:
 
 def make_persona_loader(engine_overrides: dict,
                         extra: dict | None = None,
-                        burst: bool = False) -> Callable[[str], object]:
+                        burst: bool = False,
+                        resolution_factor: float = 1.0) -> Callable[[str], object]:
     """Believable-timescale loader. When ``burst`` is true the engine's
     CALIBRATED burst overlay (M20.1 ``burst_overrides`` — latch/escalation/
     extinction/displacement) is stacked first; the inn keeps the overlay OFF by
     default (it cannot be bounded in the coupled room — see inn.yaml
     burst_overlay) and bounds reactions with its own engine_overrides instead.
-    Stacking order: timescale -> [burst] -> inn engine_overrides -> sweep extras."""
+    Stacking order: timescale -> [burst] -> inn engine_overrides -> sweep extras.
+
+    ``resolution_factor`` (M-K) refines the tick: dt shrinks by R, half-lives held
+    fixed, and the ENGINE LOADER auto-converts every rate coeff (×1/R) and count/
+    window (×R, incl. our inn engine_overrides cooldown/*_ticks/outburst vent) so
+    the real-time trajectory is preserved. R=1.0 is a guarded no-op -> byte-
+    identical. We pass it through `tick.resolution_factor` and NEVER hand-scale —
+    the loader is the single conversion point (engine S2-S4; double-scaling if we
+    also touched those values ourselves)."""
     ov = timescale_overrides()
     if burst:
         ov = _deep_merge(ov, burst_overrides())
     ov = _deep_merge(ov, engine_overrides)
     if extra:
         ov = _deep_merge(ov, extra)
+    if resolution_factor and float(resolution_factor) != 1.0:
+        ov = _deep_merge(ov, {"tick": {"resolution_factor": float(resolution_factor)}})
 
     def loader(pid: str):
         return load_persona(ENGINE_ROOT / "data" / "personas" / f"{pid}.yaml",
                             ENGINE_ROOT / "calibration" / "defaults.yaml",
                             param_overrides=ov)
     return loader
+
+
+def _inn_day_layout(loader: Callable[[str], object], resolution_factor: float) -> dict:
+    """The day tick layout at the inn's (possibly refined) dt. At R=1 this is the
+    engine's believable_day_layout() verbatim -> byte-identical default. At R>1 we
+    read the refined dt from the SAME load_persona path (so the inn's clock dt is
+    bit-equal to the engine's cfg.dt) and recompute the tick counts."""
+    if not resolution_factor or float(resolution_factor) == 1.0:
+        return believable_day_layout()
+    dt = loader("branic").dt          # branic = the engine's reference (fast cluster sets dt)
+    return {"dt": dt, "day_ticks": round(86400 / dt),
+            "waking_ticks": round(17 * 3600 / dt)}
 
 
 class InnLoop:
@@ -94,14 +117,28 @@ class InnLoop:
                  extra_events: list[tuple[int, str, RawEvent]] | None = None,
                  profile: str | None = None,
                  control: ControlState | None = None,
-                 burst_overlay: bool | None = None):
+                 burst_overlay: bool | None = None,
+                 resolution_factor: float = 1.0):
         self.cfg = cfg
         # DEC-6: the inn SHIPS as its default profile (game_semantic_profile).
         # profile=None resolves to cfg.default_profile; pass an explicit name
         # (e.g. "g0_stability_profile") to override, e.g. for G0 stability runs.
         profile = profile if profile is not None else cfg.default_profile
         self.profile = profile
-        self.clock = Clock.from_layout(believable_day_layout())
+        # burst_overlay=None -> the inn.yaml default (cfg.burst_overlay, ships
+        # false); pass an explicit bool to flip the engine's calibrated burst
+        # overlay ON/OFF for an experiment (M-B: OFF by default — it can amplify
+        # to runaway in the coupled room). Recorded in the session header so the
+        # choice is reproducible.
+        self.burst_overlay = cfg.burst_overlay if burst_overlay is None else bool(burst_overlay)
+        # M-K: tick-resolution refinement (R=1.0 default -> byte-identical). The
+        # loader carries it (tick.resolution_factor); the clock layout is derived
+        # from the SAME loader so the inn's dt matches the engine's cfg.dt exactly.
+        self.resolution_factor = float(resolution_factor or 1.0)
+        loader = persona_loader or make_persona_loader(
+            cfg.resolved_engine_overrides(profile), burst=self.burst_overlay,
+            resolution_factor=self.resolution_factor)
+        self.clock = Clock.from_layout(_inn_day_layout(loader, self.resolution_factor))
         self.stream = ScheduleStream(cfg, self.clock)
         self.presence = Presence(cfg, self.stream, self.clock)
         self.economy = Economy(cfg, self.clock, richness_mults,
@@ -110,14 +147,6 @@ class InnLoop:
         self.trace = trace
         self.scale = transducer_scale
         self.rng = random.Random(seed)  # reserved for inherited stochastic choices
-        # burst_overlay=None -> the inn.yaml default (cfg.burst_overlay, ships
-        # false); pass an explicit bool to flip the engine's calibrated burst
-        # overlay ON/OFF for an experiment (M-B: OFF by default — it can amplify
-        # to runaway in the coupled room). Recorded in the session header so the
-        # choice is reproducible.
-        self.burst_overlay = cfg.burst_overlay if burst_overlay is None else bool(burst_overlay)
-        loader = persona_loader or make_persona_loader(
-            cfg.resolved_engine_overrides(profile), burst=self.burst_overlay)
         self.runtimes: dict[str, PersonaRuntime] = {
             c.id: init_runtime(loader(c.id)) for c in cfg.cast
         }

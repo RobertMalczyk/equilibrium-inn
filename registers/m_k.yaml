@@ -1,0 +1,144 @@
+milestone: M-K (finer tick resolution + playback speed selector)
+state: IMPLEMENTED on branch m-k-tick-resolution-speed (off main @ 4ef2122, post-M-J),
+  NOT merged — awaiting user review/merge decision. Engine dependency RESOLVED: the user
+  shipped resolution_factor on engine main; inn pin bumped 0176dbd -> 311be03. 224 tests
+  green (218 + 6 new M-K); golden trace byte-identical on the new pin; full suite + live
+  cockpit smoke (resolution 15s -> dt 15.06s, speed 20x -> PLAY_SPEED, 0 console errors).
+updated: 2026-06-17
+
+resolution-of-the-block:
+  - The engine added a `tick.resolution_factor` knob (engine 311be03, "S2-S4 dt resolution"):
+    dt = min(half_life)*time_scale / (nyquist*R); the LOADER centrally converts every rate
+    coeff (x1/R) and count/window (xR: *_ticks, cooldown, per_tick) so the real-time
+    trajectory is preserved. R=1.0 is a guarded no-op -> byte-identical (golden proven).
+    This is cleaner than parameterizing timescale_overrides — it composes ON TOP of the
+    inn's believable-day timescale_overrides. KEY RULE: never hand-scale (loader is the
+    single conversion point; hand-scaling would double-scale). My earlier plan item to
+    scale inn-owned dampers is DROPPED — the loader scales them.
+  - Also landed (off by default, bit-identical for the inn): a decoupled "spent-fury
+    refractory" edge gated by thresholds.refractory_anger (unset in the inn -> no effect).
+
+goal:
+  Two linked features, accepted by the user:
+  1. Finer game tick (dt) as an OPT-IN resolution so the time-plots curves are smoother
+     and carry finer detail. Default stays dt=120 s (time_scale=40) -> golden/G2/G0 all
+     untouched. Selectable finer dt (e.g. 30 s / 15 s) in the cockpit + scenario.
+  2. Playback speed selector 1x/2x/4x/6x/8x/10x/20x. DECISION: 1x = REAL-TIME game tick
+     (at dt=15 s, one tick per 15 real-seconds); multipliers compress. "Preserve total
+     simulation time for three days" = the 3 game-days are the fixed unit being scaled.
+     Pure cockpit playback — zero dynamics impact, works at any dt.
+
+decisions-locked:
+  - dt default: OPT-IN, keep 120 s default (golden/G2/G0 byte-identical; finer dt is a mode).
+  - speed 1x: real-time game tick (game-time advances at real-time at 1x).
+
+engine-verification (read-only, done 2026-06-17):
+  - Engine integration is HYBRID. Core decay is dt-aware (decay = 2^(-dt/half_life)), so
+    trajectory SHAPE is preserved under a clock reparametrization.
+  - The inn's believable day = eval.calibrated.timescale_overrides() — HARDCODED time_scale=40
+    (reads it from calibration/calibrated_timescale.yaml). It RE-DERIVES hunger/fatigue/boredom
+    drifts + sleep discharge + seeking_timeout from real DURATIONS + dt (eval/calibrated.py
+    ~L101-167). This duration re-derivation is what makes the day believable and is the
+    operating point golden/G0/M-B sit on.
+  - The maintainer's "easy knob" param_overrides tick.time_scale maps to eval.load_eval_persona
+    (UNIFORM reparam, bit-identical per tick) — which does NOT include the duration-derived
+    drifts. So it is NOT the same dynamics as the inn's believable day.
+  - Secondary TICK-ANCHORED params are not re-derived by timescale_overrides and would shift
+    in game-time at finer dt: engine-side action cooldown:2, idle_recovery, couplings, per_tick
+    action effects, burst_confirm_ticks (burst off anyway); inn-side reactive_window_ticks:1 +
+    cooldown:15 (these the inn CAN scale with dt since they live in inn.yaml).
+
+blocking-dependency (the fork the user chose):
+  - Chosen path: ENGINE FIRST. The user (engine owner) will parameterize the believable-day
+    derivation — make eval.calibrated.timescale_overrides() / believable_day_layout() accept an
+    optional time_scale (override the YAML k) — so a finer dt keeps the SAME believable-day
+    re-derivation (drifts/sleep/seeking-timeout re-derived for the new dt). Then bump the inn
+    pin (PINNED_COMMIT + inn.yaml meta.engine_commit) to consume it.
+  - Rejected for now: (B) inn-side uniform tick.time_scale (changes the fine-mode dynamics);
+    (C) inn re-implements the derivation (hard-rule-2 smell: duplicates engine logic).
+
+implemented:
+  - inn/loop.py: make_persona_loader(resolution_factor) injects tick.resolution_factor;
+    _inn_day_layout() reads the refined dt from the SAME loader (clock dt == engine cfg.dt);
+    InnLoop(resolution_factor=...) builds the loader before the clock. R=1 -> byte-identical.
+    NO hand-scaling of dampers (loader converts centrally).
+  - inn/session.py: run_session(resolution_factor); layout + n_ticks derive from loop.clock
+    (so finer dt = more ticks for the same 3 days); header records resolution_factor; replay
+    threads it. (Dropped the now-unused believable_day_layout import.)
+  - inn/scenario.py: dump/replay carry resolution_factor (lossless reproduce at any R).
+  - inn/live.py: LiveSession(resolution_factor=...); total = days * refined day_ticks when
+    not given; dump_scenario carries it.
+  - observatory/build_bundle.py: cockpit "resolution" (120/30/15 s = R 1/4/8) + "speed"
+    (1x..20x) selectors; live_start(resolution); _emit sets window.PLAY_DT = clock dt.
+  - inn/observatory.py (shared SCRIPT): speed-aware real-time playback loop (_playFrame):
+    when window.PLAY_SPEED + PLAY_DT are set, advance PLAY_SPEED game-sec/real-sec
+    (1x = real-time), else the default 90ms/frame step() (static export unchanged).
+  - tests/test_resolution.py (6): R=1 byte-identical; finer-dt scales layout/n_ticks;
+    trajectory preserved over game-time (convergent); scenario round-trip at R=8;
+    LiveSession total scales; cockpit wires both selectors + the playback loop.
+
+followup-ui (user ask 2026-06-17): tick-resolution readout + x-axis time scale on the
+  Time Plots page.
+  - build_plot_model gained a `dt` field (seconds/tick); export_html reads it from each
+    run's session.json layout.dt; the cockpit _emit passes dt=s.loop.clock.dt.
+  - Toolbar shows a readout: "tick ≈ {dt} s · {ticks/day} ticks/day · {n} points" (so the
+    refined resolution is visible: 120.5 s/717 at R=1, ~15 s/~5738 at R=8).
+  - Each facet now reserves a bottom strip (AXIS_H) and draws an IN-WORLD-TIME x-axis
+    (Day HH:MM at 5 ticks across the current window) via drawTimeAxis(); the overview
+    gained a whole-run time scale (HH:MM every ~12 h) + the header notes the x-axis.
+  - tests/test_timeplots.py +1 (dt in model + axis/readout present). Render-only.
+
+bugfix-2026-06-17 (play regression): the M-K speed-aware play loop clamped at the last
+  frame; since a finished run / live frontier parks the playhead at the END, pressing ▶
+  play was a no-op (dead-on-arrival), and at the 120 s default even 20x advanced <1
+  tick/2.5 s (real-time is ~120 s/tick there). Reproduced in-browser (frame 2150 ->
+  2150). FIX (user decision: keep 1x=real-time, raise the cap):
+  - inn/observatory.py: extracted pure DOM-free PLAYBACK_JS (playAdvance + playStartFrame);
+    play now restarts from 0 when parked at the end (playStartFrame) and routes the speed
+    loop through playAdvance (carries the fractional remainder, clamps + reports done).
+  - observatory/build_bundle.py: speed options now 1/2/4/8/20/50/100/200x, DEFAULT 200x so
+    play is watchable at the 120 s default (200x ~0.6 s/tick; finer dt needs less).
+  - tests/test_playback_js.py (2): node-runs the pure helpers — restart-at-end, advances
+    from start at 200x, clamps+done at end, 1x real-time cadence, fractional carry; plus a
+    guard that SCRIPT calls playStartFrame/playAdvance. This is the test that WOULD have
+    caught it (the prior tests only asserted code-presence). Re-verified in-browser:
+    parked-at-end play restarts and advances (2150 -> 4 in 2.5 s), 0 console errors.
+
+followup-ui-2 (user ask 2026-06-17): more speed steps + readable fine-dt plots.
+  - observatory/build_bundle.py: speed selector extended to 500/750/1000/2000x (at 15s dt
+    these make play brisk; at 120s 200x+ is usable).
+  - inn/timeplots.py: "⤢ Fit Y" toggle (TP.autoscale) — at fine dt the affect curves sit
+    in a thin band of the 0–1 axis (anger ~0.06–0.29) and were barely visible; Fit Y
+    rescales EACH facet's y-axis to its visible-window data range (yRange(), padded) so
+    curves fill the chart. Added y value labels (ymin/ymax) per facet so the scale is
+    legible. Hover readout still shows absolute values. Render-only.
+  - tests/test_timeplots.py +1 (Fit-Y button + yRange present). Browser-verified: Fit Y
+    makes all facets' curves clearly visible; speeds 1..2000x; 0 console errors.
+
+perf-fix-2026-06-18 (cockpit froze at 15s tick): verified loading times by stage — at
+  R=8 a 3-day run is 17,214 ticks; CPython: advance 23s, build_model 2.9s, plot 2.0s, and
+  the OBSERVATION model serialized to 58 MB JSON (Pyodide is several× slower + blocks the
+  page main thread → freeze). Two fixes in observatory/build_bundle.py:
+  - _emit strides the observation model by round(resolution_factor) — display ribbons/
+    scrubber/scene don't need 17k ticks; payload 58 MB -> 7.4 MB / 2,152 display ticks at
+    R=8, build 2.9s -> 1.2s (events kept full-fidelity). The Time Plots model stays
+    FULL-RES (that's what fine dt is for).
+  - doRun (Review autonomous run) advances in CHUNKS (live_advance_quiet) yielding to the
+    UI between chunks with a "computing… N%" status, then ONE final live_emit — so the
+    long compute shows progress instead of a hard freeze.
+  Browser-verified at R=4: MODEL display ticks 2,152 (strided), TPMODEL 8,607 (full-res),
+  completes ~35s with progress, 0 console errors. New QA guard qa D6 (strided model < 12 MB
+  and >=5x smaller than full at R=8) so this can't silently regress.
+
+still-recommended (not blocking the merge):
+  - A G0 spot-check on the finer-dt mode before trusting ITS incident corridor for analysis
+    (the finer dt is a new operating point; default 120 s corridor is unchanged).
+
+impact-summary:
+  - Default (120 s) path: byte-identical. Golden trace, G2 parity reference, G0 corridor INTACT.
+  - Finer-dt mode: a new operating point (opt-in); not golden-frozen; G0 spot-check recommended.
+  - Performance: dt=15 s -> ~8x ticks (17 280 for 3 days) -> ~8x runtime + trace; Pyodide live
+    full-run is heavy -> the speed selector is what keeps it watchable.
+
+resume-trigger: user provides the engine branch/commit with parameterized timescale_overrides;
+  then bump the inn pin and implement the planned-implementation block above.
